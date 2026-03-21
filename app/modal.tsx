@@ -7,9 +7,13 @@ import { ThemedView } from '@/components/themed-view';
 export default function ModalScreen() {
   return (
     <ThemedView style={styles.container}>
-      <ThemedText type="title">This is a modal</ThemedText>
-      <Link href="/" dismissTo style={styles.link}>
-        <ThemedText type="link">Go to home screen</ThemedText>
+      <ThemedText type="title">About Savorly</ThemedText>
+      <ThemedText style={styles.copy}>
+        Savorly is your place to collect craveable dishes, browse ingredients, and find recipes you actually want to
+        make.
+      </ThemedText>
+      <Link href="/(tabs)/discover" dismissTo style={styles.link}>
+        <ThemedText type="link">Back to discover</ThemedText>
       </Link>
     </ThemedView>
   );
@@ -25,5 +29,10 @@ const styles = StyleSheet.create({
   link: {
     marginTop: 15,
     paddingVertical: 15,
+  },
+  copy: {
+    marginTop: 12,
+    textAlign: 'center',
+    lineHeight: 22,
   },
 });
