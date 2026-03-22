@@ -5,11 +5,13 @@ import { PanResponder, StyleSheet, useWindowDimensions, View } from 'react-nativ
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HapticTab } from '@/components/haptic-tab';
+import { useSettings } from '@/components/settings-provider';
 import { SideMenu } from '@/components/side-menu';
 
 export default function TabLayout() {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const { theme } = useSettings();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const isCompact = width < 390;
   const isWide = width >= 430;
@@ -37,7 +39,7 @@ export default function TabLayout() {
         screenOptions={{
           headerShown: false,
           tabBarButton: HapticTab,
-          tabBarActiveTintColor: '#C7512D',
+          tabBarActiveTintColor: theme.accent,
           tabBarInactiveTintColor: '#8E8A84',
           tabBarHideOnKeyboard: true,
           tabBarStyle: {
@@ -45,8 +47,8 @@ export default function TabLayout() {
             paddingTop: isCompact ? 6 : 8,
             paddingBottom: Math.max(insets.bottom, isCompact ? 8 : 10),
             paddingHorizontal: isWide ? 18 : 10,
-            backgroundColor: '#FFF8F2',
-            borderTopColor: '#F0DED0',
+            backgroundColor: theme.tabBarBackground,
+            borderTopColor: theme.tabBarBorder,
           },
           tabBarItemStyle: {
             borderRadius: 14,

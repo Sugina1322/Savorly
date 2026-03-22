@@ -1,14 +1,33 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
-import { Pressable, SafeAreaView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useEffect } from 'react';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BrandMark } from '@/components/brand-mark';
+import { useAuth } from '@/components/auth-provider';
 
 export default function AuthWelcomeScreen() {
   const { width, height } = useWindowDimensions();
+  const { accountError, isAccountReady, isLoading, isProfileLoading, user } = useAuth();
   const isCompact = width < 380;
   const brandMarkSize = width < 360 ? 124 : width < 430 ? 148 : 164;
   const verticalOffset = height < 760 ? 24 : 48;
+
+  useEffect(() => {
+    if (isLoading || isProfileLoading) {
+      return;
+    }
+
+    if (user && accountError) {
+      router.replace('/auth/callback');
+      return;
+    }
+
+    if (user && isAccountReady) {
+      router.replace('/landing');
+    }
+  }, [accountError, isAccountReady, isLoading, isProfileLoading, user]);
 
   return (
     <SafeAreaView style={styles.safeArea}>

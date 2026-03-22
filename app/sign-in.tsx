@@ -1,15 +1,15 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useEffect, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/components/auth-provider';
 
 export default function SignInScreen() {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const { signIn, isConfigured } = useAuth();
+  const { signIn, signInWithProvider, isAccountReady, isConfigured, user } = useAuth();
   const isCompact = width < 380 || height < 760;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -17,15 +17,56 @@ export default function SignInScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    if (isAccountReady) {
+      router.replace('/landing');
+      return;
+    }
+
+    router.replace('/auth/callback');
+  }, [isAccountReady, user]);
+
   async function handleSignIn() {
     setErrorMessage(null);
     setIsSubmitting(true);
 
     try {
       await signIn({ email, password });
-      router.replace('/landing');
+      router.replace('/auth/callback');
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Unable to sign in right now.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleFacebookSignIn() {
+    setErrorMessage(null);
+    setIsSubmitting(true);
+
+    try {
+      await signInWithProvider('facebook');
+      router.replace('/auth/callback');
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to sign in with Facebook right now.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleGoogleSignIn() {
+    setErrorMessage(null);
+    setIsSubmitting(true);
+
+    try {
+      await signInWithProvider('google');
+      router.replace('/auth/callback');
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to sign in with Google right now.');
     } finally {
       setIsSubmitting(false);
     }
@@ -115,13 +156,13 @@ export default function SignInScreen() {
             </View>
 
             <View style={styles.socialColumn}>
-              <Pressable style={styles.socialButton}>
+              <Pressable style={[styles.socialButton, isSubmitting && styles.buttonDisabled]} onPress={handleGoogleSignIn} disabled={isSubmitting}>
                 <MaterialIcons name="mail-outline" size={18} color="#2A1A14" />
                 <Text style={styles.socialLabel}>Google</Text>
               </Pressable>
-              <Pressable style={styles.socialButton}>
-                <MaterialIcons name="code" size={18} color="#2A1A14" />
-                <Text style={styles.socialLabel}>GitHub</Text>
+              <Pressable style={[styles.socialButton, isSubmitting && styles.buttonDisabled]} onPress={handleFacebookSignIn} disabled={isSubmitting}>
+                <MaterialIcons name="facebook" size={18} color="#2A1A14" />
+                <Text style={styles.socialLabel}>Facebook</Text>
               </Pressable>
             </View>
 

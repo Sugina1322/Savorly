@@ -5,22 +5,26 @@ import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-na
 
 import { FavoriteButton } from '@/components/favorite-button';
 import { useRecipes } from '@/components/recipes-provider';
+import { useSettings } from '@/components/settings-provider';
 import { ResponsiveScrollScreen } from '@/components/responsive-scroll-screen';
+import { getUiCopy } from '@/utils/app-settings-display';
 
 export default function RecipeDetailScreen() {
   const { width } = useWindowDimensions();
   const isCompact = width < 390;
   const { recipes, toggleFavorite } = useRecipes();
+  const { settings, theme } = useSettings();
   const { id } = useLocalSearchParams<{ id: string }>();
   const recipe = recipes.find((item) => item.id === id);
+  const copy = getUiCopy(settings.language);
 
   if (!recipe) {
     return (
-      <View style={styles.missingSafeArea}>
+      <View style={[styles.missingSafeArea, { backgroundColor: theme.tabBarBackground }]}>
         <View style={styles.missingContainer}>
-          <Text style={styles.missingTitle}>Recipe not found</Text>
-          <Pressable style={styles.backButton} onPress={() => router.back()}>
-            <Text style={styles.backButtonText}>Go back</Text>
+          <Text style={styles.missingTitle}>{copy.recipeNotFound}</Text>
+          <Pressable style={[styles.backButton, { backgroundColor: theme.accent }]} onPress={() => router.back()}>
+            <Text style={styles.backButtonText}>{copy.goBack}</Text>
           </Pressable>
         </View>
       </View>
@@ -29,7 +33,7 @@ export default function RecipeDetailScreen() {
 
   return (
     <ResponsiveScrollScreen
-      backgroundColor="#FFF8F2"
+      backgroundColor={theme.tabBarBackground}
       contentStyle={styles.screenContent}
       contentWrapStyle={styles.contentWrap}>
       <View style={[styles.hero, isCompact && styles.heroCompact]}>
@@ -48,35 +52,35 @@ export default function RecipeDetailScreen() {
       </View>
 
       <View style={[styles.metaRow, isCompact && styles.metaRowCompact]}>
-        <View style={styles.metaCard}>
+        <View style={[styles.metaCard, { backgroundColor: theme.cardBackground }]}>
           <Text style={styles.metaNumber}>{recipe.cookTime}</Text>
-          <Text style={styles.metaLabel}>Minutes</Text>
+          <Text style={styles.metaLabel}>{copy.minutes}</Text>
         </View>
-        <View style={styles.metaCard}>
+        <View style={[styles.metaCard, { backgroundColor: theme.cardBackground }]}>
           <Text style={styles.metaNumber}>{recipe.servings}</Text>
-          <Text style={styles.metaLabel}>Servings</Text>
+          <Text style={styles.metaLabel}>{copy.servings}</Text>
         </View>
-        <View style={styles.metaCard}>
+        <View style={[styles.metaCard, { backgroundColor: theme.cardBackground }]}>
           <Text style={styles.metaNumber}>{recipe.ingredients.length}</Text>
-          <Text style={styles.metaLabel}>Ingredients</Text>
+          <Text style={styles.metaLabel}>{copy.ingredients}</Text>
         </View>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Ingredients</Text>
+        <Text style={styles.sectionTitle}>{copy.ingredients}</Text>
         {recipe.ingredients.map((ingredient) => (
           <View key={ingredient} style={styles.listItem}>
-            <View style={styles.listDot} />
+            <View style={[styles.listDot, { backgroundColor: theme.accent }]} />
             <Text style={styles.listText}>{ingredient}</Text>
           </View>
         ))}
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>How to make it</Text>
+        <Text style={styles.sectionTitle}>{copy.howToMakeIt}</Text>
         {recipe.steps.map((step, index) => (
           <View key={step} style={styles.stepRow}>
-            <View style={styles.stepBadge}>
+            <View style={[styles.stepBadge, { backgroundColor: theme.accent }]}>
               <Text style={styles.stepBadgeText}>{index + 1}</Text>
             </View>
             <Text style={styles.stepText}>{step}</Text>
@@ -85,10 +89,10 @@ export default function RecipeDetailScreen() {
       </View>
 
       <View style={[styles.section, styles.tagsSection]}>
-        <Text style={styles.sectionTitle}>Tags</Text>
+        <Text style={styles.sectionTitle}>{copy.tags}</Text>
         <View style={styles.tagRow}>
           {recipe.tags.map((tag) => (
-            <Text key={tag} style={styles.tagChip}>
+            <Text key={tag} style={[styles.tagChip, { backgroundColor: theme.accentSoft, color: theme.accent }]}>
               {tag}
             </Text>
           ))}

@@ -1,6 +1,8 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { GestureResponderEvent, Pressable, StyleSheet } from 'react-native';
 
+import { useSettings } from '@/components/settings-provider';
+
 type FavoriteButtonProps = {
   active: boolean;
   onPress: () => void;
@@ -9,6 +11,7 @@ type FavoriteButtonProps = {
 
 export function FavoriteButton({ active, onPress, variant = 'light' }: FavoriteButtonProps) {
   const dark = variant === 'dark';
+  const { theme } = useSettings();
 
   return (
     <Pressable
@@ -25,7 +28,7 @@ export function FavoriteButton({ active, onPress, variant = 'light' }: FavoriteB
       <MaterialIcons
         name={active ? 'favorite' : 'favorite-border'}
         size={18}
-        color={active ? '#C7512D' : dark ? '#FFF8F2' : '#3F2B22'}
+        color={active ? theme.accent : dark ? '#FFF8F2' : '#3F2B22'}
       />
     </Pressable>
   );

@@ -4,30 +4,36 @@ import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-na
 
 import { FavoriteButton } from '@/components/favorite-button';
 import { useRecipes } from '@/components/recipes-provider';
+import { useSettings } from '@/components/settings-provider';
 import { ResponsiveScrollScreen } from '@/components/responsive-scroll-screen';
+import { formatCookTime, getUiCopy } from '@/utils/app-settings-display';
 
 export default function DiscoverScreen() {
   const { width } = useWindowDimensions();
   const { recipes, toggleFavorite } = useRecipes();
+  const { settings, theme } = useSettings();
   const contentWidth = Math.min(width - 36, 460);
   const tileWidth = (contentWidth - 12) / 2;
   const featuredRecipes = recipes.filter((recipe) => recipe.featured);
+  const copy = getUiCopy(settings.language);
 
   return (
-    <ResponsiveScrollScreen backgroundColor="#FFF8F2">
+    <ResponsiveScrollScreen backgroundColor={theme.tabBarBackground}>
       <View style={styles.header}>
-        <Text style={styles.eyebrow}>Savorly</Text>
+        <Text style={[styles.eyebrow, { color: theme.accent }]}>{copy.appName}</Text>
         <Text style={styles.title}>Your food mood board.</Text>
         <Text style={styles.subtitle}>
           Find dishes you want to cook, save the ones you love, and open any card for ingredients and steps.
         </Text>
 
         <View style={styles.headerActions}>
-          <Pressable style={[styles.headerButton, styles.headerButtonPrimary]}>
-            <Text style={styles.headerButtonPrimaryText}>Featured</Text>
+          <Pressable style={[styles.headerButton, styles.headerButtonPrimary, { backgroundColor: theme.heroBackground }]}>
+            <Text style={styles.headerButtonPrimaryText}>{copy.featured}</Text>
           </Pressable>
-          <Pressable style={[styles.headerButton, styles.headerButtonSecondary]} onPress={() => router.push('/add-recipe')}>
-            <Text style={styles.headerButtonSecondaryText}>Add recipe</Text>
+          <Pressable
+            style={[styles.headerButton, styles.headerButtonSecondary, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
+            onPress={() => router.push('/add-recipe')}>
+            <Text style={styles.headerButtonSecondaryText}>{copy.addRecipe}</Text>
           </Pressable>
         </View>
 
@@ -37,10 +43,10 @@ export default function DiscoverScreen() {
             <FavoriteButton active={featuredRecipes[0].saved} onPress={() => toggleFavorite(featuredRecipes[0].id)} />
           </View>
           <View style={styles.featuredOverlay}>
-            <Text style={styles.featuredLabel}>Featured pick</Text>
+            <Text style={[styles.featuredLabel, { color: theme.heroAccent }]}>{copy.featuredPick}</Text>
             <Text style={styles.featuredTitle}>{featuredRecipes[0].title}</Text>
             <Text style={styles.featuredMeta}>
-              {featuredRecipes[0].cookTime} min - {featuredRecipes[0].cuisine}
+              {formatCookTime(featuredRecipes[0].cookTime, settings.language)} - {featuredRecipes[0].cuisine}
             </Text>
           </View>
         </View>
@@ -69,9 +75,11 @@ export default function DiscoverScreen() {
                   {item.description}
                 </Text>
                 <View style={styles.chipRow}>
-                  <Text style={styles.chip}>{item.cuisine}</Text>
-                  <Text style={styles.chip}>{item.cookTime} min</Text>
-                </View>
+                    <Text style={[styles.chip, { backgroundColor: theme.accentSoft, color: theme.accent }]}>{item.cuisine}</Text>
+                    <Text style={[styles.chip, { backgroundColor: theme.accentSoft, color: theme.accent }]}>
+                      {formatCookTime(item.cookTime, settings.language)}
+                    </Text>
+                  </View>
               </View>
             </Pressable>
           );

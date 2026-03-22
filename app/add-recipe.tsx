@@ -1,18 +1,24 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { useSettings } from '@/components/settings-provider';
+import { getUiCopy } from '@/utils/app-settings-display';
 
 export default function AddRecipeScreen() {
   const { width } = useWindowDimensions();
   const isCompact = width < 420;
+  const { settings, theme } = useSettings();
+  const copy = getUiCopy(settings.language);
   const [title, setTitle] = useState('');
   const [cuisine, setCuisine] = useState('');
   const [cookTime, setCookTime] = useState('');
   const [description, setDescription] = useState('');
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.appBackground }]}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.contentWrap}>
           <Pressable style={styles.backButton} onPress={() => router.back()}>
@@ -21,14 +27,14 @@ export default function AddRecipeScreen() {
           </Pressable>
 
           <View style={styles.header}>
-            <Text style={styles.eyebrow}>Your recipe</Text>
+            <Text style={[styles.eyebrow, { color: theme.accent }]}>{copy.yourRecipe}</Text>
             <Text style={styles.title}>Add something worth saving.</Text>
             <Text style={styles.subtitle}>
               Start building your own cookbook inside Savorly. You can wire this up to storage later.
             </Text>
           </View>
 
-          <View style={styles.card}>
+          <View style={[styles.card, { borderColor: theme.border }]}>
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Recipe title</Text>
               <TextInput
@@ -36,7 +42,7 @@ export default function AddRecipeScreen() {
                 onChangeText={setTitle}
                 placeholder="Creamy garlic shrimp pasta"
                 placeholderTextColor="#9C8B82"
-                style={styles.input}
+                style={[styles.input, { borderColor: theme.border }]}
               />
             </View>
 
@@ -48,7 +54,7 @@ export default function AddRecipeScreen() {
                   onChangeText={setCuisine}
                   placeholder="Italian"
                   placeholderTextColor="#9C8B82"
-                  style={styles.input}
+                  style={[styles.input, { borderColor: theme.border }]}
                 />
               </View>
 
@@ -59,7 +65,7 @@ export default function AddRecipeScreen() {
                   onChangeText={setCookTime}
                   placeholder="30 min"
                   placeholderTextColor="#9C8B82"
-                  style={styles.input}
+                  style={[styles.input, { borderColor: theme.border }]}
                 />
               </View>
             </View>
@@ -73,12 +79,12 @@ export default function AddRecipeScreen() {
                 placeholderTextColor="#9C8B82"
                 multiline
                 textAlignVertical="top"
-                style={styles.textArea}
+                style={[styles.textArea, { borderColor: theme.border }]}
               />
             </View>
 
-            <Pressable style={styles.primaryButton}>
-              <Text style={styles.primaryButtonText}>Save recipe</Text>
+            <Pressable style={[styles.primaryButton, { backgroundColor: theme.accent }]}>
+              <Text style={styles.primaryButtonText}>{copy.saveRecipe}</Text>
             </Pressable>
 
             <Text style={styles.helperText}>This screen is ready for your future recipe-save logic.</Text>

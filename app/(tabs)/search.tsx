@@ -5,13 +5,16 @@ import { Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } fro
 
 import { FavoriteButton } from '@/components/favorite-button';
 import { useRecipes } from '@/components/recipes-provider';
+import { useSettings } from '@/components/settings-provider';
 import { ResponsiveScrollScreen } from '@/components/responsive-scroll-screen';
+import { formatCookTime, getUiCopy } from '@/utils/app-settings-display';
 
 const quickFilters = ['Comfort', 'Spicy', 'Seafood', 'Quick', 'Vegetarian'];
 
 export default function SearchScreen() {
   const { width } = useWindowDimensions();
   const { recipes, toggleFavorite } = useRecipes();
+  const { settings, theme } = useSettings();
   const contentWidth = Math.min(width - 40, 460);
   const cardWidth = (contentWidth - 12) / 2;
   const [query, setQuery] = useState('');
@@ -24,10 +27,11 @@ export default function SearchScreen() {
           .toLowerCase()
           .includes(normalizedQuery)
       );
+  const copy = getUiCopy(settings.language);
 
   return (
-    <ResponsiveScrollScreen backgroundColor="#FFF8F2" contentStyle={styles.screenPadding}>
-      <Text style={styles.title}>Search your next bite</Text>
+    <ResponsiveScrollScreen backgroundColor={theme.tabBarBackground} contentStyle={styles.screenPadding}>
+      <Text style={styles.title}>{copy.searchNextBite}</Text>
       <Text style={styles.subtitle}>
         Look up dishes, ingredients, or moods like &quot;comfort&quot; or &quot;high protein&quot;.
       </Text>
@@ -35,26 +39,26 @@ export default function SearchScreen() {
       <TextInput
         value={query}
         onChangeText={setQuery}
-        placeholder="Search by dish, ingredient, or cuisine"
+        placeholder={copy.searchPlaceholder}
         placeholderTextColor="#9A8D84"
-        style={styles.input}
+        style={[styles.input, { borderColor: theme.border }]}
       />
 
       <View style={styles.topRow}>
         <View style={styles.filterRow}>
           {quickFilters.map((filter) => (
-            <Pressable key={filter} style={styles.filterChip} onPress={() => setQuery(filter)}>
-              <Text style={styles.filterText}>{filter}</Text>
+            <Pressable key={filter} style={[styles.filterChip, { backgroundColor: theme.accentSoft }]} onPress={() => setQuery(filter)}>
+              <Text style={[styles.filterText, { color: theme.accent }]}>{filter}</Text>
             </Pressable>
           ))}
         </View>
-        <Pressable style={styles.addButton} onPress={() => router.push('/add-recipe')}>
-          <Text style={styles.addButtonText}>Add recipe</Text>
+        <Pressable style={[styles.addButton, { backgroundColor: theme.heroBackground }]} onPress={() => router.push('/add-recipe')}>
+          <Text style={styles.addButtonText}>{copy.addRecipe}</Text>
         </Pressable>
       </View>
 
       <View style={styles.resultsHeader}>
-        <Text style={styles.resultsTitle}>{filteredRecipes.length} recipes</Text>
+        <Text style={styles.resultsTitle}>{filteredRecipes.length} {copy.recipes}</Text>
         <Text style={styles.resultsCopy}>Tap a card to see ingredients and cooking steps.</Text>
       </View>
 
@@ -76,7 +80,7 @@ export default function SearchScreen() {
             <View style={styles.resultBody}>
               <Text style={styles.resultTitle}>{recipe.title}</Text>
               <Text style={styles.resultMeta}>
-                {recipe.cuisine} - {recipe.cookTime} min
+                {recipe.cuisine} - {formatCookTime(recipe.cookTime, settings.language)}
               </Text>
               <Text style={styles.resultDescription} numberOfLines={3}>
                 {recipe.description}

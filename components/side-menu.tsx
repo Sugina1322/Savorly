@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import {
   Animated,
   Modal,
@@ -15,6 +15,8 @@ import {
 
 import { useAuth } from '@/components/auth-provider';
 import { useRecipes } from '@/components/recipes-provider';
+import { useSettings } from '@/components/settings-provider';
+import { getAvatarOption, getDisplayName, getHandle, getInitials } from '@/utils/profile';
 
 type SideMenuProps = {
   visible: boolean;
@@ -48,8 +50,8 @@ const supportItems = [
   },
   {
     icon: 'security' as const,
-    title: 'Privacy',
-    subtitle: 'Manage account and data settings',
+    title: 'Settings',
+    subtitle: 'Theme, language, alerts, and app preferences',
   },
   {
     icon: 'help-outline' as const,
@@ -59,12 +61,16 @@ const supportItems = [
 ];
 
 export function SideMenu({ visible, onClose }: SideMenuProps) {
-  const { signOut } = useAuth();
+  const { isAccountReady, profile, signOut, user } = useAuth();
   const { savedCount } = useRecipes();
-  const [smartSuggestions, setSmartSuggestions] = useState(true);
-  const [pushAlerts, setPushAlerts] = useState(false);
+  const { setPushAlerts, setSmartSuggestions, settings, theme } = useSettings();
   const translateX = useRef(new Animated.Value(-360)).current;
   const panelWidth = 360;
+  const displayName = getDisplayName(profile?.full_name, user?.email);
+  const handle = getHandle(profile?.username, profile?.email ?? user?.email);
+  const initials = getInitials(displayName);
+  const avatar = getAvatarOption(profile?.avatar_key);
+  const isGuest = !user;
 
   const closeSwipeResponder = useMemo(
     () =>
@@ -114,19 +120,35 @@ export function SideMenu({ visible, onClose }: SideMenuProps) {
             </View>
 
             <View style={styles.heroCard}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>JS</Text>
+              <View style={[styles.avatar, !isGuest && { backgroundColor: avatar.backgroundColor }]}>
+                <Text style={styles.avatarText}>{isGuest ? initials : avatar.emoji}</Text>
               </View>
 
               <View style={styles.heroBody}>
-                <Text style={styles.eyebrow}>Your menu</Text>
-                <Text style={styles.name}>Jean Santos</Text>
-                <Text style={styles.handle}>@jeansavorly</Text>
-                <Text style={styles.bio}>Saving comfort food, quick lunches, and desserts worth repeating.</Text>
+                <Text style={styles.eyebrow}>{isGuest ? 'Guest mode' : 'Your menu'}</Text>
+                <Text style={styles.name}>{displayName}</Text>
+                <Text style={styles.handle}>{handle}</Text>
+                <Text style={styles.bio}>
+                  {isGuest
+                    ? 'Browse recipes in guest mode, or sign in to save your favorites and build your own account.'
+                    : isAccountReady
+                      ? 'Your profile is ready. Save favorites, build collections, and keep your best kitchen ideas together.'
+                      : 'We are still preparing your account details.'}
+                </Text>
               </View>
 
-              <Pressable style={styles.editPill}>
-                <Text style={styles.editPillText}>Edit</Text>
+              <Pressable
+                style={styles.editPill}
+                onPress={() => {
+                  onClose();
+                  if (isGuest) {
+                    router.push('/sign-in');
+                    return;
+                  }
+
+                  router.push('/edit-profile');
+                }}>
+                <Text style={styles.editPillText}>{isGuest ? 'Sign in' : 'Edit'}</Text>
               </Pressable>
             </View>
 
@@ -147,7 +169,19 @@ export function SideMenu({ visible, onClose }: SideMenuProps) {
                 {accountItems.map((item, index) => (
                   <Pressable
                     key={item.title}
-                    style={[styles.listRow, index < accountItems.length - 1 ? styles.rowBorder : undefined]}>
+                    style={[styles.listRow, index < accountItems.length - 1 ? styles.rowBorder : undefined]}
+                    onPress={() => {
+                      if (item.title === 'Edit profile') {
+                        onClose();
+
+                        if (isGuest) {
+                          router.push('/sign-in');
+                          return;
+                        }
+
+                        router.push('/edit-profile');
+                      }
+                    }}>
                     <View style={styles.leadingIcon}>
                       <MaterialIcons name={item.icon} size={22} color="#A24D2C" />
                     </View>
@@ -170,9 +204,9 @@ export function SideMenu({ visible, onClose }: SideMenuProps) {
                     <Text style={styles.rowSubtitle}>Recommend dishes based on what you save and search.</Text>
                   </View>
                   <Switch
-                    trackColor={{ false: '#E8D9CE', true: '#E28A64' }}
-                    thumbColor={smartSuggestions ? '#C7512D' : '#FFF8F2'}
-                    value={smartSuggestions}
+                    trackColor={{ false: theme.border, true: theme.accentSoft }}
+                    thumbColor={settings.smartSuggestions ? theme.accent : '#FFF8F2'}
+                    value={settings.smartSuggestions}
                     onValueChange={setSmartSuggestions}
                   />
                 </View>
@@ -183,9 +217,9 @@ export function SideMenu({ visible, onClose }: SideMenuProps) {
                     <Text style={styles.rowSubtitle}>Get notified when new recipe collections arrive.</Text>
                   </View>
                   <Switch
-                    trackColor={{ false: '#E8D9CE', true: '#E28A64' }}
-                    thumbColor={pushAlerts ? '#C7512D' : '#FFF8F2'}
-                    value={pushAlerts}
+                    trackColor={{ false: theme.border, true: theme.accentSoft }}
+                    thumbColor={settings.pushAlerts ? theme.accent : '#FFF8F2'}
+                    value={settings.pushAlerts}
                     onValueChange={setPushAlerts}
                   />
                 </View>
@@ -200,7 +234,11 @@ export function SideMenu({ visible, onClose }: SideMenuProps) {
                     key={item.title}
                     style={[styles.listRow, index < supportItems.length - 1 ? styles.rowBorder : undefined]}
                     onPress={() => {
-                      item.action?.();
+                      if (item.title === 'Settings') {
+                        router.push('/settings');
+                      } else {
+                        item.action?.();
+                      }
                       onClose();
                     }}>
                     <View style={styles.leadingIconMuted}>
@@ -216,21 +254,33 @@ export function SideMenu({ visible, onClose }: SideMenuProps) {
               </View>
             </View>
 
-            <Pressable
-              style={styles.logoutButton}
-              onPress={async () => {
-                try {
-                  await signOut();
-                } catch (error) {
-                  console.warn('Failed to sign out', error);
-                } finally {
+            {isGuest ? (
+              <Pressable
+                style={styles.logoutButton}
+                onPress={() => {
                   onClose();
-                  router.replace('/');
-                }
-              }}>
-              <MaterialIcons name="logout" size={18} color="#FFFFFF" />
-              <Text style={styles.logoutText}>Log out</Text>
-            </Pressable>
+                  router.push('/sign-in');
+                }}>
+                <MaterialIcons name="login" size={18} color="#FFFFFF" />
+                <Text style={styles.logoutText}>Sign in</Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                style={styles.logoutButton}
+                onPress={async () => {
+                  try {
+                    await signOut();
+                  } catch (error) {
+                    console.warn('Failed to sign out', error);
+                  } finally {
+                    onClose();
+                    router.replace('/');
+                  }
+                }}>
+                <MaterialIcons name="logout" size={18} color="#FFFFFF" />
+                <Text style={styles.logoutText}>Log out</Text>
+              </Pressable>
+            )}
           </ScrollView>
         </Animated.View>
       </View>

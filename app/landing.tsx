@@ -1,17 +1,22 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { PanResponder, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PanResponder, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FavoriteButton } from '@/components/favorite-button';
+import { useAuth } from '@/components/auth-provider';
 import { useRecipes } from '@/components/recipes-provider';
+import { useSettings } from '@/components/settings-provider';
 import { SideMenu } from '@/components/side-menu';
+import { formatCookTime, getUiCopy } from '@/utils/app-settings-display';
 
 export default function LandingScreen() {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const { profile, user } = useAuth();
   const { recipes, toggleFavorite } = useRecipes();
+  const { settings, theme } = useSettings();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const edgeSwipeResponder = useMemo(
     () =>
@@ -33,21 +38,28 @@ export default function LandingScreen() {
   const cardWidth = (contentWidth - 12) / 2;
   const featuredRecipe = recipes[0];
   const previewRecipes = recipes.slice(1, 5);
+  const copy = getUiCopy(settings.language);
+  const firstName =
+    profile?.full_name?.trim().split(' ')[0] ||
+    user?.email?.split('@')[0] ||
+    'chef';
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.backgroundOrbLarge} />
-      <View style={styles.backgroundOrbSmall} />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.appBackground }]}>
+      <View style={[styles.backgroundOrbLarge, { backgroundColor: theme.accentSoft }]} />
+      <View style={[styles.backgroundOrbSmall, { backgroundColor: theme.cardBackground }]} />
 
       <ScrollView contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, 12) + 12 }]} showsVerticalScrollIndicator={false}>
         <View style={styles.contentWrap}>
           <View style={styles.topBar}>
             <View>
-              <Text style={styles.eyebrow}>Welcome back</Text>
-              <Text style={[styles.brand, compact && styles.brandCompact]}>Savorly</Text>
+              <Text style={styles.eyebrow}>{user ? `Welcome back, ${firstName}` : 'Welcome to guest mode'}</Text>
+              <Text style={[styles.brand, compact && styles.brandCompact]}>{copy.appName}</Text>
             </View>
-            <Pressable style={styles.addChip} onPress={() => router.push('/add-recipe')}>
-              <Text style={styles.addChipText}>+ Add recipe</Text>
+            <Pressable
+              style={[styles.addChip, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
+              onPress={() => router.push('/add-recipe')}>
+              <Text style={[styles.addChipText, { color: theme.accent }]}>+ {copy.addRecipe}</Text>
             </Pressable>
           </View>
 
@@ -57,9 +69,11 @@ export default function LandingScreen() {
               <FavoriteButton active={featuredRecipe.saved} onPress={() => toggleFavorite(featuredRecipe.id)} />
             </View>
             <View style={styles.heroOverlay}>
-              <Text style={styles.heroLabel}>Featured</Text>
+              <Text style={[styles.heroLabel, { color: theme.heroAccent }]}>{copy.featured}</Text>
               <Text style={[styles.heroTitle, compact && styles.heroTitleCompact]}>{featuredRecipe.title}</Text>
-              <Text style={styles.heroMeta}>{featuredRecipe.cuisine} - {featuredRecipe.cookTime} min</Text>
+              <Text style={styles.heroMeta}>
+                {featuredRecipe.cuisine} - {formatCookTime(featuredRecipe.cookTime, settings.language)}
+              </Text>
             </View>
           </View>
 
@@ -73,45 +87,47 @@ export default function LandingScreen() {
           </View>
 
           <View style={styles.actionsRow}>
-            <Pressable style={[styles.smallAction, styles.primaryAction]} onPress={() => router.push('/(tabs)/discover')}>
-              <Text style={styles.primaryActionText}>Explore</Text>
+            <Pressable style={[styles.smallAction, styles.primaryAction, { backgroundColor: theme.accent }]} onPress={() => router.push('/(tabs)/discover')}>
+              <Text style={styles.primaryActionText}>{copy.explore}</Text>
             </Pressable>
-            <Pressable style={[styles.smallAction, styles.secondaryAction]} onPress={() => router.push('/add-recipe')}>
-              <Text style={styles.secondaryActionText}>Add yours</Text>
+            <Pressable
+              style={[styles.smallAction, styles.secondaryAction, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
+              onPress={() => router.push('/add-recipe')}>
+              <Text style={styles.secondaryActionText}>{copy.addYours}</Text>
             </Pressable>
-            <Pressable style={[styles.smallAction, styles.ghostAction]} onPress={() => router.push('/modal')}>
-              <Text style={styles.ghostActionText}>About</Text>
+            <Pressable style={[styles.smallAction, styles.ghostAction, { backgroundColor: theme.accentSoft }]} onPress={() => router.push('/modal')}>
+              <Text style={[styles.ghostActionText, { color: theme.accent }]}>{copy.about}</Text>
             </Pressable>
           </View>
 
           <View style={styles.statRow}>
-            <View style={styles.statCard}>
+            <View style={[styles.statCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
               <Text style={styles.statNumber}>{recipes.length}</Text>
-              <Text style={styles.statLabel}>Recipes ready</Text>
+              <Text style={styles.statLabel}>{copy.recipesReady}</Text>
             </View>
-            <View style={styles.statCardAccent}>
+            <View style={[styles.statCardAccent, { backgroundColor: theme.heroBackground }]}>
               <Text style={styles.statNumberLight}>12 min</Text>
-              <Text style={styles.statLabelLight}>Fastest dinner</Text>
+              <Text style={styles.statLabelLight}>{copy.fastestDinner}</Text>
             </View>
           </View>
 
-          <View style={styles.creatorCard}>
+          <View style={[styles.creatorCard, { backgroundColor: theme.accent }]}>
             <View style={styles.creatorCopy}>
-              <Text style={styles.creatorEyebrow}>Cookbook builder</Text>
+              <Text style={styles.creatorEyebrow}>{copy.cookbookBuilder}</Text>
               <Text style={styles.creatorTitle}>Got a family favorite?</Text>
               <Text style={styles.creatorText}>
                 Add your own recipe so your personal dishes can live beside the ones you discover here.
               </Text>
             </View>
             <Pressable style={styles.creatorButton} onPress={() => router.push('/add-recipe')}>
-              <Text style={styles.creatorButtonText}>Start adding</Text>
+              <Text style={[styles.creatorButtonText, { color: theme.accent }]}>{copy.startAdding}</Text>
             </Pressable>
           </View>
 
           <View style={styles.previewSection}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Preview</Text>
-              <Text style={styles.sectionCaption}>A more editorial board</Text>
+              <Text style={styles.sectionTitle}>{copy.preview}</Text>
+              <Text style={[styles.sectionCaption, { color: theme.accent }]}>{copy.editorialBoard}</Text>
             </View>
 
             <View style={styles.previewGrid}>
@@ -141,7 +157,7 @@ export default function LandingScreen() {
                     <View style={styles.previewBody}>
                       <Text style={styles.previewCardTitle}>{recipe.title}</Text>
                       <Text style={styles.previewCardMeta}>
-                        {recipe.cuisine} - {recipe.cookTime} min
+                        {recipe.cuisine} - {formatCookTime(recipe.cookTime, settings.language)}
                       </Text>
                       <Text style={styles.previewCardCopy} numberOfLines={isWideCard ? 2 : 3}>
                         {recipe.description}

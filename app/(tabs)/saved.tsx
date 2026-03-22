@@ -4,30 +4,34 @@ import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-na
 
 import { FavoriteButton } from '@/components/favorite-button';
 import { useRecipes } from '@/components/recipes-provider';
+import { useSettings } from '@/components/settings-provider';
 import { ResponsiveScrollScreen } from '@/components/responsive-scroll-screen';
+import { formatCookTime, getUiCopy } from '@/utils/app-settings-display';
 
 export default function SavedScreen() {
   const { width } = useWindowDimensions();
   const { recipes, savedCount, toggleFavorite } = useRecipes();
+  const { settings, theme } = useSettings();
   const contentWidth = Math.min(width - 40, 460);
   const cardWidth = (contentWidth - 12) / 2;
   const savedRecipes = recipes.filter((recipe) => recipe.saved);
+  const copy = getUiCopy(settings.language);
 
   return (
-    <ResponsiveScrollScreen backgroundColor="#FFF8F2" contentStyle={styles.screenPadding}>
-      <Text style={styles.title}>Saved recipes</Text>
+    <ResponsiveScrollScreen backgroundColor={theme.tabBarBackground} contentStyle={styles.screenPadding}>
+      <Text style={styles.title}>{copy.savedRecipes}</Text>
       <Text style={styles.subtitle}>Your personal board of dishes worth coming back to.</Text>
 
       <View style={styles.topActions}>
-        <View style={styles.statsCard}>
+        <View style={[styles.statsCard, { backgroundColor: theme.accent }]}>
           <Text style={styles.statsNumber}>{savedCount}</Text>
-          <Text style={styles.statsLabel}>Recipes saved for later</Text>
+          <Text style={styles.statsLabel}>{copy.savedForLater}</Text>
         </View>
-        <Pressable style={styles.miniButton} onPress={() => router.push('/(tabs)/discover')}>
-          <Text style={styles.miniButtonText}>Browse all</Text>
+        <Pressable style={[styles.miniButton, { backgroundColor: theme.heroBackground }]} onPress={() => router.push('/(tabs)/discover')}>
+          <Text style={styles.miniButtonText}>{copy.browseAll}</Text>
         </Pressable>
-        <Pressable style={[styles.miniButton, styles.miniButtonLight]} onPress={() => router.push('/add-recipe')}>
-          <Text style={styles.miniButtonTextDark}>Add recipe</Text>
+        <Pressable style={[styles.miniButton, styles.miniButtonLight, { backgroundColor: theme.accentSoft }]} onPress={() => router.push('/add-recipe')}>
+          <Text style={[styles.miniButtonTextDark, { color: theme.accent }]}>{copy.addRecipe}</Text>
         </Pressable>
       </View>
 
@@ -55,7 +59,7 @@ export default function SavedScreen() {
               <View style={styles.overlay}>
                 <Text style={styles.cardTitle}>{recipe.title}</Text>
                 <Text style={styles.cardMeta}>
-                  {recipe.cuisine} - {recipe.cookTime} min
+                  {recipe.cuisine} - {formatCookTime(recipe.cookTime, settings.language)}
                 </Text>
               </View>
             </Pressable>
