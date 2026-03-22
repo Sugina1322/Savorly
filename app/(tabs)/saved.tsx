@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { useAuth } from '@/components/auth-provider';
 import { FavoriteButton } from '@/components/favorite-button';
@@ -13,7 +13,7 @@ import { openProtectedRoute, PROTECTED_AUTH_ROUTES } from '@/utils/auth-gate';
 export default function SavedScreen() {
   const { width } = useWindowDimensions();
   const { user } = useAuth();
-  const { recipes, savedCount, smartCollections, tasteProfile, toggleFavorite } = useRecipes();
+  const { clearSavedRecipes, recipes, savedCount, smartCollections, tasteProfile, toggleFavorite } = useRecipes();
   const { settings, theme } = useSettings();
   const contentWidth = Math.min(width - 40, 460);
   const cardWidth = (contentWidth - 12) / 2;
@@ -33,18 +33,39 @@ export default function SavedScreen() {
       <Text style={styles.subtitle}>Your personal board of dishes worth coming back to.</Text>
 
       <View style={styles.topActions}>
-        <View style={[styles.statsCard, { backgroundColor: theme.accent }]}>
-          <Text style={styles.statsNumber}>{savedCount}</Text>
-          <Text style={styles.statsLabel}>{copy.savedForLater}</Text>
+        <View style={styles.topActionRow}>
+          <View style={[styles.statsCard, { backgroundColor: theme.accent }]}>
+            <Text style={styles.statsNumber}>{savedCount}</Text>
+            <Text style={styles.statsLabel}>{copy.savedForLater}</Text>
+          </View>
+          {savedRecipes.length > 0 ? (
+            <Pressable
+              style={[styles.clearButton, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
+              onPress={() =>
+                Alert.alert('Clear saved recipes?', 'This will remove every recipe from your saved board.', [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Clear all',
+                    style: 'destructive',
+                    onPress: () => clearSavedRecipes(),
+                  },
+                ])
+              }>
+              <Text style={[styles.clearButtonEyebrow, { color: theme.accent }]}>Manage</Text>
+              <Text style={styles.clearButtonTitle}>Clear saved</Text>
+            </Pressable>
+          ) : null}
         </View>
-        <Pressable style={[styles.miniButton, { backgroundColor: theme.heroBackground }]} onPress={() => router.push('/(tabs)/discover')}>
-          <Text style={styles.miniButtonText}>{copy.browseAll}</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.miniButton, styles.miniButtonLight, { backgroundColor: theme.accentSoft }]}
-          onPress={() => openProtectedRoute(isSignedIn, PROTECTED_AUTH_ROUTES.addRecipe)}>
-          <Text style={[styles.miniButtonTextDark, { color: theme.accent }]}>{copy.addRecipe}</Text>
-        </Pressable>
+        <View style={styles.miniButtonsRow}>
+          <Pressable style={[styles.miniButton, { backgroundColor: theme.heroBackground }]} onPress={() => router.push('/(tabs)/discover')}>
+            <Text style={styles.miniButtonText}>{copy.browseAll}</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.miniButton, styles.miniButtonLight, { backgroundColor: theme.accentSoft }]}
+            onPress={() => openProtectedRoute(isSignedIn, PROTECTED_AUTH_ROUTES.addRecipe)}>
+            <Text style={[styles.miniButtonTextDark, { color: theme.accent }]}>{copy.addRecipe}</Text>
+          </Pressable>
+        </View>
       </View>
 
       <View style={[styles.profileCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
@@ -144,6 +165,8 @@ const styles = StyleSheet.create({
   title: { color: '#23150F', fontSize: 30, fontWeight: '800' },
   subtitle: { marginTop: 8, color: '#6B5F58', fontSize: 15, lineHeight: 22 },
   topActions: { marginTop: 20, gap: 10 },
+  topActionRow: { flexDirection: 'row', gap: 10 },
+  miniButtonsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   profileCard: { marginTop: 18, borderRadius: 22, borderWidth: 1, padding: 16 },
   profileTitle: { fontSize: 16, fontWeight: '800' },
   profileCopy: { marginTop: 6, color: '#23150F', fontSize: 14, fontWeight: '700' },
@@ -178,9 +201,30 @@ const styles = StyleSheet.create({
   collectionMeta: { color: '#23150F', fontSize: 12, fontWeight: '700' },
   collectionAction: { fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.7 },
   statsCard: {
+    flex: 1,
     borderRadius: 24,
     padding: 20,
     backgroundColor: '#C7512D',
+  },
+  clearButton: {
+    minWidth: 132,
+    borderRadius: 24,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    justifyContent: 'center',
+  },
+  clearButtonEyebrow: {
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  clearButtonTitle: {
+    marginTop: 6,
+    color: '#23150F',
+    fontSize: 16,
+    fontWeight: '800',
   },
   statsNumber: { color: '#FFFFFF', fontSize: 34, fontWeight: '800' },
   statsLabel: { marginTop: 4, color: '#FFE2D4', fontSize: 14, fontWeight: '500' },

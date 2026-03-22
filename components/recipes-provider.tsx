@@ -28,6 +28,7 @@ type RecipesContextValue = {
   cookingProgress: Record<string, number>;
   savedCount: number;
   toggleFavorite: (id: string) => void;
+  clearSavedRecipes: () => void;
   searchRecipes: (query: string) => SearchResult[];
   smartSuggestions: { recipe: Recipe; score: number; reason: string }[];
   smartCollections: SmartCollection[];
@@ -237,6 +238,10 @@ export function RecipesProvider({ children }: PropsWithChildren) {
     });
   }, []);
 
+  const clearSavedRecipes = useCallback(() => {
+    setSavedIds(new Set());
+  }, []);
+
   const addRecipeFromIdea = useCallback((input: AddRecipeInput) => {
     const nextRecipe = buildRecipeDraft(input);
     setRecipes((current) => [nextRecipe, ...current]);
@@ -410,6 +415,7 @@ export function RecipesProvider({ children }: PropsWithChildren) {
       smartCollections: buildSmartCollections(mappedRecipes, savedIds, tasteProfile),
       tasteProfile,
       toggleFavorite,
+      clearSavedRecipes,
       addRecipeFromIdea,
       updateRecipeFromIdea,
       deleteRecipe,
@@ -419,7 +425,7 @@ export function RecipesProvider({ children }: PropsWithChildren) {
       recordSearchQuery,
       trackRecipeView,
     };
-  }, [addRecipeFromIdea, clearMealPlanSlot, cookingProgress, deleteRecipe, interactions, mealPlans, recordSearchQuery, recipes, savedIds, setCookingProgress, setMealPlanSlot, settings, toggleFavorite, trackRecipeView, updateRecipeFromIdea]);
+  }, [addRecipeFromIdea, clearMealPlanSlot, clearSavedRecipes, cookingProgress, deleteRecipe, interactions, mealPlans, recordSearchQuery, recipes, savedIds, setCookingProgress, setMealPlanSlot, settings, toggleFavorite, trackRecipeView, updateRecipeFromIdea]);
 
   return <RecipesContext.Provider value={value}>{children}</RecipesContext.Provider>;
 }
