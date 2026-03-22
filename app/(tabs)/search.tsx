@@ -457,6 +457,13 @@ export default function SearchScreen() {
               <Text style={[styles.heroActionText, { color: theme.accent }]}>{copy.addRecipe}</Text>
             </Pressable>
           </View>
+
+          <Pressable
+            style={[styles.catalogButton, { backgroundColor: 'rgba(255, 248, 242, 0.12)', borderColor: 'rgba(255, 248, 242, 0.18)' }]}
+            onPress={() => router.push('/foods')}>
+            <MaterialIcons name="restaurant-menu" size={18} color="#FFF8F2" />
+            <Text style={styles.catalogButtonText}>{screenCopy.viewAllFoods}</Text>
+          </Pressable>
         </View>
       </View>
 
@@ -595,11 +602,7 @@ export default function SearchScreen() {
           </Text>
           <Pressable
             style={[styles.resultsActionButton, { backgroundColor: theme.accentSoft, borderColor: theme.border }]}
-            onPress={() => {
-              setQuery('');
-              setPantryInput('');
-              setActiveMode('all');
-            }}>
+            onPress={() => router.push('/foods')}>
             <Text style={[styles.resultsActionText, { color: theme.accent }]}>{screenCopy.viewAllFoods}</Text>
           </Pressable>
         </View>
@@ -924,6 +927,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   heroActionText: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  catalogButton: {
+    marginTop: 12,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+  },
+  catalogButtonText: {
+    color: '#FFF8F2',
     fontSize: 13,
     fontWeight: '800',
   },

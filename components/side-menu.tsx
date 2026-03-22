@@ -185,7 +185,7 @@ export function SideMenu({ visible, onClose }: SideMenuProps) {
               </Pressable>
             </View>
 
-            <View style={[styles.statsRow, isCompact && styles.statsRowCompact]}>
+            <View style={styles.statsRow}>
               <View style={[styles.statCard, { backgroundColor: theme.cardBackground }]}>
                 <Text style={styles.statNumber}>{savedCount}</Text>
                 <Text style={styles.statLabel}>Saved recipes</Text>
@@ -456,25 +456,24 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 16,
   },
-  statsRowCompact: {
-    flexDirection: 'column',
-  },
   statCard: {
     flex: 1,
-    borderRadius: 22,
+    minWidth: 0,
+    borderRadius: 18,
     backgroundColor: '#FFFFFF',
-    paddingVertical: 18,
+    paddingVertical: 14,
     paddingHorizontal: 12,
   },
   statNumber: {
     color: '#261712',
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '900',
   },
   statLabel: {
     marginTop: 4,
     color: '#7B6C63',
-    fontSize: 12,
+    fontSize: 11,
+    lineHeight: 15,
     fontWeight: '600',
   },
   section: {
