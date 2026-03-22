@@ -2,6 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useEffect } from 'react';
 
 import { FavoriteButton } from '@/components/favorite-button';
 import { useRecipes } from '@/components/recipes-provider';
@@ -12,11 +13,19 @@ import { getUiCopy } from '@/utils/app-settings-display';
 export default function RecipeDetailScreen() {
   const { width } = useWindowDimensions();
   const isCompact = width < 390;
-  const { recipes, toggleFavorite } = useRecipes();
+  const { recipes, toggleFavorite, trackRecipeView } = useRecipes();
   const { settings, theme } = useSettings();
   const { id } = useLocalSearchParams<{ id: string }>();
   const recipe = recipes.find((item) => item.id === id);
   const copy = getUiCopy(settings.language);
+
+  useEffect(() => {
+    if (!id) {
+      return;
+    }
+
+    trackRecipeView(id);
+  }, [id, trackRecipeView]);
 
   if (!recipe) {
     return (

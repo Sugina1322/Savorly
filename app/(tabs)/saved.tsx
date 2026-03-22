@@ -10,12 +10,15 @@ import { formatCookTime, getUiCopy } from '@/utils/app-settings-display';
 
 export default function SavedScreen() {
   const { width } = useWindowDimensions();
-  const { recipes, savedCount, toggleFavorite } = useRecipes();
+  const { recipes, savedCount, smartCollections, tasteProfile, toggleFavorite } = useRecipes();
   const { settings, theme } = useSettings();
   const contentWidth = Math.min(width - 40, 460);
   const cardWidth = (contentWidth - 12) / 2;
   const savedRecipes = recipes.filter((recipe) => recipe.saved);
   const copy = getUiCopy(settings.language);
+  const topCuisine =
+    Object.entries(tasteProfile.cuisines).sort((left, right) => right[1] - left[1])[0]?.[0] ?? 'Still learning';
+  const topTag = Object.entries(tasteProfile.tags).sort((left, right) => right[1] - left[1])[0]?.[0] ?? 'Exploration';
 
   return (
     <ResponsiveScrollScreen backgroundColor={theme.tabBarBackground} contentStyle={styles.screenPadding}>
@@ -34,6 +37,29 @@ export default function SavedScreen() {
           <Text style={[styles.miniButtonTextDark, { color: theme.accent }]}>{copy.addRecipe}</Text>
         </Pressable>
       </View>
+
+      <View style={[styles.profileCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+        <Text style={[styles.profileTitle, { color: theme.accent }]}>Taste Profile</Text>
+        <Text style={styles.profileCopy}>Top cuisine: {topCuisine}</Text>
+        <Text style={styles.profileCopy}>Top mood: {topTag}</Text>
+        <Text style={styles.profileHint}>This profile updates from saves, searches, and recipe views.</Text>
+      </View>
+
+      {smartCollections.length > 0 ? (
+        <View style={styles.collectionsSection}>
+          <Text style={styles.collectionsTitle}>Smart collections</Text>
+          <Text style={styles.collectionsSubtitle}>Auto-grouped from your saved habits and recipe patterns.</Text>
+          <View style={styles.collectionsGrid}>
+            {smartCollections.map((collection) => (
+              <View key={collection.id} style={[styles.collectionCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+                <Text style={[styles.collectionName, { color: theme.accent }]}>{collection.title}</Text>
+                <Text style={styles.collectionCopy}>{collection.subtitle}</Text>
+                <Text style={styles.collectionCount}>{collection.recipeIds.length} recipes</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      ) : null}
 
       <View style={styles.grid}>
         {savedRecipes.map((recipe, index) => {
@@ -75,6 +101,18 @@ const styles = StyleSheet.create({
   title: { color: '#23150F', fontSize: 30, fontWeight: '800' },
   subtitle: { marginTop: 8, color: '#6B5F58', fontSize: 15, lineHeight: 22 },
   topActions: { marginTop: 20, gap: 10 },
+  profileCard: { marginTop: 18, borderRadius: 22, borderWidth: 1, padding: 16 },
+  profileTitle: { fontSize: 16, fontWeight: '800' },
+  profileCopy: { marginTop: 6, color: '#23150F', fontSize: 14, fontWeight: '700' },
+  profileHint: { marginTop: 8, color: '#6B5F58', fontSize: 12, lineHeight: 18 },
+  collectionsSection: { marginTop: 24 },
+  collectionsTitle: { color: '#23150F', fontSize: 22, fontWeight: '800' },
+  collectionsSubtitle: { marginTop: 6, color: '#6B5F58', fontSize: 13, lineHeight: 19 },
+  collectionsGrid: { gap: 10, marginTop: 14 },
+  collectionCard: { borderRadius: 22, borderWidth: 1, padding: 16 },
+  collectionName: { fontSize: 16, fontWeight: '800' },
+  collectionCopy: { marginTop: 6, color: '#6B5F58', fontSize: 13, lineHeight: 18 },
+  collectionCount: { marginTop: 10, color: '#23150F', fontSize: 12, fontWeight: '700' },
   statsCard: {
     borderRadius: 24,
     padding: 20,

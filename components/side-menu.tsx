@@ -110,22 +110,24 @@ export function SideMenu({ visible, onClose }: SideMenuProps) {
       <View style={styles.overlay}>
         <Pressable style={styles.backdrop} onPress={onClose} />
 
-        <Animated.View style={[styles.panel, { transform: [{ translateX }] }]} {...closeSwipeResponder.panHandlers}>
+        <Animated.View
+          style={[styles.panel, { transform: [{ translateX }], backgroundColor: theme.appBackground }]}
+          {...closeSwipeResponder.panHandlers}>
           <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
             <View style={styles.topRow}>
-              <Text style={styles.topLabel}>Menu</Text>
-              <Pressable style={styles.closeButton} onPress={onClose}>
+              <Text style={[styles.topLabel, { color: theme.accent }]}>Menu</Text>
+              <Pressable style={[styles.closeButton, { backgroundColor: theme.cardBackground }]} onPress={onClose}>
                 <MaterialIcons name="close" size={20} color="#2A1A14" />
               </Pressable>
             </View>
 
-            <View style={styles.heroCard}>
+            <View style={[styles.heroCard, { backgroundColor: theme.heroBackground }]}>
               <View style={[styles.avatar, !isGuest && { backgroundColor: avatar.backgroundColor }]}>
                 <Text style={styles.avatarText}>{isGuest ? initials : avatar.emoji}</Text>
               </View>
 
               <View style={styles.heroBody}>
-                <Text style={styles.eyebrow}>{isGuest ? 'Guest mode' : 'Your menu'}</Text>
+                <Text style={[styles.eyebrow, { color: theme.heroAccent }]}>{isGuest ? 'Guest mode' : 'Your menu'}</Text>
                 <Text style={styles.name}>{displayName}</Text>
                 <Text style={styles.handle}>{handle}</Text>
                 <Text style={styles.bio}>
@@ -138,7 +140,7 @@ export function SideMenu({ visible, onClose }: SideMenuProps) {
               </View>
 
               <Pressable
-                style={styles.editPill}
+                style={[styles.editPill, { backgroundColor: theme.cardBackground }]}
                 onPress={() => {
                   onClose();
                   if (isGuest) {
@@ -148,16 +150,16 @@ export function SideMenu({ visible, onClose }: SideMenuProps) {
 
                   router.push('/edit-profile');
                 }}>
-                <Text style={styles.editPillText}>{isGuest ? 'Sign in' : 'Edit'}</Text>
+                <Text style={[styles.editPillText, { color: theme.accent }]}>{isGuest ? 'Sign in' : 'Edit'}</Text>
               </Pressable>
             </View>
 
             <View style={styles.statsRow}>
-              <View style={styles.statCard}>
+              <View style={[styles.statCard, { backgroundColor: theme.cardBackground }]}>
                 <Text style={styles.statNumber}>{savedCount}</Text>
                 <Text style={styles.statLabel}>Saved recipes</Text>
               </View>
-              <View style={styles.statCard}>
+              <View style={[styles.statCard, { backgroundColor: theme.cardBackground }]}>
                 <Text style={styles.statNumber}>7</Text>
                 <Text style={styles.statLabel}>Collections</Text>
               </View>
@@ -165,11 +167,11 @@ export function SideMenu({ visible, onClose }: SideMenuProps) {
 
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Account</Text>
-              <View style={styles.listCard}>
+              <View style={[styles.listCard, { backgroundColor: theme.cardBackground }]}>
                 {accountItems.map((item, index) => (
                   <Pressable
                     key={item.title}
-                    style={[styles.listRow, index < accountItems.length - 1 ? styles.rowBorder : undefined]}
+                    style={[styles.listRow, index < accountItems.length - 1 ? [styles.rowBorder, { borderTopColor: theme.border }] : undefined]}
                     onPress={() => {
                       if (item.title === 'Edit profile') {
                         onClose();
@@ -180,16 +182,28 @@ export function SideMenu({ visible, onClose }: SideMenuProps) {
                         }
 
                         router.push('/edit-profile');
+                        return;
+                      }
+
+                      if (item.title === 'Taste profile') {
+                        onClose();
+
+                        if (isGuest) {
+                          router.push('/sign-in');
+                          return;
+                        }
+
+                        router.push('/taste-profile');
                       }
                     }}>
-                    <View style={styles.leadingIcon}>
-                      <MaterialIcons name={item.icon} size={22} color="#A24D2C" />
+                    <View style={[styles.leadingIcon, { backgroundColor: theme.accentSoft }]}>
+                      <MaterialIcons name={item.icon} size={22} color={theme.accent} />
                     </View>
                     <View style={styles.rowBody}>
                       <Text style={styles.rowTitle}>{item.title}</Text>
                       <Text style={styles.rowSubtitle}>{item.subtitle}</Text>
                     </View>
-                    <MaterialIcons name="chevron-right" size={22} color="#AA9A91" />
+                    <MaterialIcons name="chevron-right" size={22} color={theme.accent} />
                   </Pressable>
                 ))}
               </View>
@@ -197,7 +211,7 @@ export function SideMenu({ visible, onClose }: SideMenuProps) {
 
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Preferences</Text>
-              <View style={styles.preferenceCard}>
+              <View style={[styles.preferenceCard, { backgroundColor: theme.cardBackground }]}>
                 <View style={styles.preferenceRow}>
                   <View style={styles.preferenceText}>
                     <Text style={styles.rowTitle}>Smart suggestions</Text>
@@ -211,7 +225,7 @@ export function SideMenu({ visible, onClose }: SideMenuProps) {
                   />
                 </View>
 
-                <View style={[styles.preferenceRow, styles.rowBorder]}>
+                <View style={[styles.preferenceRow, styles.rowBorder, { borderTopColor: theme.border }]}>
                   <View style={styles.preferenceText}>
                     <Text style={styles.rowTitle}>Push alerts</Text>
                     <Text style={styles.rowSubtitle}>Get notified when new recipe collections arrive.</Text>
@@ -228,11 +242,11 @@ export function SideMenu({ visible, onClose }: SideMenuProps) {
 
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Support</Text>
-              <View style={styles.listCard}>
+              <View style={[styles.listCard, { backgroundColor: theme.cardBackground }]}>
                 {supportItems.map((item, index) => (
                   <Pressable
                     key={item.title}
-                    style={[styles.listRow, index < supportItems.length - 1 ? styles.rowBorder : undefined]}
+                    style={[styles.listRow, index < supportItems.length - 1 ? [styles.rowBorder, { borderTopColor: theme.border }] : undefined]}
                     onPress={() => {
                       if (item.title === 'Settings') {
                         router.push('/settings');
@@ -241,14 +255,14 @@ export function SideMenu({ visible, onClose }: SideMenuProps) {
                       }
                       onClose();
                     }}>
-                    <View style={styles.leadingIconMuted}>
-                      <MaterialIcons name={item.icon} size={22} color="#6E625D" />
+                    <View style={[styles.leadingIconMuted, { backgroundColor: theme.accentSoft }]}>
+                      <MaterialIcons name={item.icon} size={22} color={theme.accent} />
                     </View>
                     <View style={styles.rowBody}>
                       <Text style={styles.rowTitle}>{item.title}</Text>
                       <Text style={styles.rowSubtitle}>{item.subtitle}</Text>
                     </View>
-                    <MaterialIcons name="chevron-right" size={22} color="#AA9A91" />
+                    <MaterialIcons name="chevron-right" size={22} color={theme.accent} />
                   </Pressable>
                 ))}
               </View>
@@ -256,7 +270,7 @@ export function SideMenu({ visible, onClose }: SideMenuProps) {
 
             {isGuest ? (
               <Pressable
-                style={styles.logoutButton}
+                style={[styles.logoutButton, { backgroundColor: theme.accent }]}
                 onPress={() => {
                   onClose();
                   router.push('/sign-in');
@@ -266,7 +280,7 @@ export function SideMenu({ visible, onClose }: SideMenuProps) {
               </Pressable>
             ) : (
               <Pressable
-                style={styles.logoutButton}
+                style={[styles.logoutButton, { backgroundColor: theme.accent }]}
                 onPress={async () => {
                   try {
                     await signOut();

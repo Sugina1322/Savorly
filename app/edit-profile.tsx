@@ -5,11 +5,13 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/components/auth-provider';
+import { useSettings } from '@/components/settings-provider';
 import { AVATAR_OPTIONS, getAvatarOption, getDisplayName, getHandle } from '@/utils/profile';
 
 export default function EditProfileScreen() {
   const insets = useSafeAreaInsets();
   const { profile, updateProfile, user } = useAuth();
+  const { theme } = useSettings();
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
   const [bio, setBio] = useState('');
@@ -55,7 +57,7 @@ export default function EditProfileScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.appBackground }]}>
       <ScrollView
         contentContainerStyle={[
           styles.content,
@@ -65,7 +67,7 @@ export default function EditProfileScreen() {
         ]}
         showsVerticalScrollIndicator={false}>
         <View style={styles.shell}>
-          <Pressable style={styles.backButton} onPress={() => router.back()}>
+          <Pressable style={[styles.backButton, { backgroundColor: theme.cardBackground, borderColor: theme.border }]} onPress={() => router.back()}>
             <MaterialIcons name="arrow-back" size={20} color="#251712" />
             <Text style={styles.backText}>Back</Text>
           </Pressable>
@@ -75,7 +77,7 @@ export default function EditProfileScreen() {
             <Text style={styles.subtitle}>Customize how your account looks across Savorly.</Text>
           </View>
 
-          <View style={styles.previewCard}>
+          <View style={[styles.previewCard, { backgroundColor: theme.heroBackground }]}>
             <View style={[styles.previewAvatar, { backgroundColor: selectedAvatar.backgroundColor }]}>
               <Text style={styles.previewAvatarEmoji}>{selectedAvatar.emoji}</Text>
             </View>
@@ -89,7 +91,7 @@ export default function EditProfileScreen() {
             </View>
           </View>
 
-          <View style={styles.card}>
+          <View style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
             <Text style={styles.sectionTitle}>Profile details</Text>
 
             <View style={styles.fieldGroup}>
@@ -99,7 +101,7 @@ export default function EditProfileScreen() {
                 onChangeText={setFullName}
                 placeholder="What should people call you?"
                 placeholderTextColor="#9C8B82"
-                style={styles.input}
+                style={[styles.input, { borderColor: theme.border }]}
                 maxLength={40}
               />
             </View>
@@ -112,7 +114,7 @@ export default function EditProfileScreen() {
                 placeholder="your.handle"
                 placeholderTextColor="#9C8B82"
                 autoCapitalize="none"
-                style={styles.input}
+                style={[styles.input, { borderColor: theme.border }]}
                 maxLength={20}
               />
               <Text style={styles.helperText}>3-20 characters, using letters, numbers, dots, or underscores.</Text>
@@ -125,7 +127,7 @@ export default function EditProfileScreen() {
                 onChangeText={setBio}
                 placeholder="Home cook, dessert hunter, late-night noodle expert..."
                 placeholderTextColor="#9C8B82"
-                style={[styles.input, styles.bioInput]}
+                style={[styles.input, styles.bioInput, { borderColor: theme.border }]}
                 multiline
                 textAlignVertical="top"
                 maxLength={120}
@@ -134,7 +136,7 @@ export default function EditProfileScreen() {
             </View>
           </View>
 
-          <View style={styles.card}>
+          <View style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
             <Text style={styles.sectionTitle}>Choose your avatar</Text>
             <View style={styles.avatarGrid}>
               {AVATAR_OPTIONS.map((option) => {
@@ -143,12 +145,16 @@ export default function EditProfileScreen() {
                 return (
                   <Pressable
                     key={option.key}
-                    style={[styles.avatarOption, isSelected && styles.avatarOptionSelected]}
+                    style={[
+                      styles.avatarOption,
+                      { borderColor: theme.border, backgroundColor: theme.appBackground },
+                      isSelected && [styles.avatarOptionSelected, { borderColor: theme.accent, backgroundColor: theme.accentSoft }],
+                    ]}
                     onPress={() => setAvatarKey(option.key)}>
                     <View style={[styles.avatarBubble, { backgroundColor: option.backgroundColor }]}>
                       <Text style={styles.avatarEmoji}>{option.emoji}</Text>
                     </View>
-                    <Text style={styles.avatarLabel}>{option.label}</Text>
+                    <Text style={[styles.avatarLabel, isSelected && { color: theme.accent }]}>{option.label}</Text>
                   </Pressable>
                 );
               })}
@@ -158,7 +164,7 @@ export default function EditProfileScreen() {
           {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
           {successMessage ? <Text style={styles.successText}>{successMessage}</Text> : null}
 
-          <Pressable style={[styles.saveButton, isSaving && styles.buttonDisabled]} onPress={handleSave} disabled={isSaving}>
+          <Pressable style={[styles.saveButton, { backgroundColor: theme.accent }, isSaving && styles.buttonDisabled]} onPress={handleSave} disabled={isSaving}>
             <Text style={styles.saveButtonText}>{isSaving ? 'Saving...' : 'Save profile'}</Text>
           </Pressable>
         </View>

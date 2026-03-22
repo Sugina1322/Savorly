@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
 import { FavoriteButton } from '@/components/favorite-button';
@@ -13,21 +13,27 @@ const quickFilters = ['Comfort', 'Spicy', 'Seafood', 'Quick', 'Vegetarian'];
 
 export default function SearchScreen() {
   const { width } = useWindowDimensions();
-  const { recipes, toggleFavorite } = useRecipes();
+  const { recordSearchQuery, searchRecipes, toggleFavorite } = useRecipes();
   const { settings, theme } = useSettings();
   const contentWidth = Math.min(width - 40, 460);
   const cardWidth = (contentWidth - 12) / 2;
   const [query, setQuery] = useState('');
   const normalizedQuery = query.trim().toLowerCase();
-  const filteredRecipes = !normalizedQuery
-    ? recipes
-    : recipes.filter((recipe) =>
-        [recipe.title, recipe.cuisine, recipe.description, ...recipe.tags, ...recipe.ingredients]
-          .join(' ')
-          .toLowerCase()
-          .includes(normalizedQuery)
-      );
+  const rankedResults = searchRecipes(query);
+  const filteredRecipes = rankedResults.map((result) => result.recipe);
   const copy = getUiCopy(settings.language);
+
+  useEffect(() => {
+    if (normalizedQuery.length < 2) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      recordSearchQuery(normalizedQuery);
+    }, 350);
+
+    return () => clearTimeout(timeout);
+  }, [normalizedQuery, recordSearchQuery]);
 
   return (
     <ResponsiveScrollScreen backgroundColor={theme.tabBarBackground} contentStyle={styles.screenPadding}>
@@ -59,11 +65,16 @@ export default function SearchScreen() {
 
       <View style={styles.resultsHeader}>
         <Text style={styles.resultsTitle}>{filteredRecipes.length} {copy.recipes}</Text>
-        <Text style={styles.resultsCopy}>Tap a card to see ingredients and cooking steps.</Text>
+        <Text style={styles.resultsCopy}>
+          {normalizedQuery ? 'Results are ranked by ingredient, title, and taste-profile relevance.' : 'Tap a card to see ingredients and cooking steps.'}
+        </Text>
       </View>
 
       <View style={styles.grid}>
-        {filteredRecipes.map((recipe, index) => (
+        {rankedResults.map((result, index) => {
+          const recipe = result.recipe;
+
+          return (
           <Pressable
             key={recipe.id}
             style={[styles.resultCard, { width: cardWidth }, index % 4 === 1 && styles.resultCardLifted]}
@@ -82,12 +93,13 @@ export default function SearchScreen() {
               <Text style={styles.resultMeta}>
                 {recipe.cuisine} - {formatCookTime(recipe.cookTime, settings.language)}
               </Text>
+              <Text style={[styles.matchReason, { color: theme.accent }]}>{result.reason}</Text>
               <Text style={styles.resultDescription} numberOfLines={3}>
                 {recipe.description}
               </Text>
             </View>
           </Pressable>
-        ))}
+        )})}
       </View>
     </ResponsiveScrollScreen>
   );
@@ -152,4 +164,5 @@ const styles = StyleSheet.create({
   resultTitle: { color: '#23150F', fontSize: 16, fontWeight: '700' },
   resultMeta: { marginTop: 6, color: '#A36B46', fontSize: 12, fontWeight: '600' },
   resultDescription: { marginTop: 8, color: '#72655C', fontSize: 13, lineHeight: 18 },
+  matchReason: { marginTop: 7, fontSize: 12, fontWeight: '700' },
 });

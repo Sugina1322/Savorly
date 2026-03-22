@@ -38,6 +38,7 @@ export default function RootLayout() {
               <Stack.Screen name="sign-in" options={{ headerShown: false }} />
               <Stack.Screen name="sign-up" options={{ headerShown: false }} />
               <Stack.Screen name="edit-profile" options={{ headerShown: false }} />
+              <Stack.Screen name="taste-profile" options={{ headerShown: false }} />
               <Stack.Screen name="settings" options={{ headerShown: false }} />
               <Stack.Screen name="add-recipe" options={{ headerShown: false }} />
               <Stack.Screen name="landing" options={{ headerShown: false }} />

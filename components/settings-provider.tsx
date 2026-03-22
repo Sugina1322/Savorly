@@ -4,6 +4,8 @@ import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useSt
 export type AppThemeKey = 'terracotta' | 'forest' | 'citrus' | 'berry';
 export type AppLanguage = 'en' | 'es' | 'fr' | 'fil';
 export type MeasurementSystem = 'metric' | 'imperial';
+export type SpiceLevel = 'mild' | 'medium' | 'bold';
+export type DietaryFocus = 'balanced' | 'vegetarian' | 'high-protein';
 
 export type AppTheme = {
   key: AppThemeKey;
@@ -26,6 +28,9 @@ type SettingsState = {
   smartSuggestions: boolean;
   pushAlerts: boolean;
   hapticsEnabled: boolean;
+  spiceLevel: SpiceLevel;
+  dietaryFocus: DietaryFocus;
+  preferredCuisines: string[];
 };
 
 type SettingsContextValue = {
@@ -38,6 +43,9 @@ type SettingsContextValue = {
   setSmartSuggestions: (enabled: boolean) => void;
   setPushAlerts: (enabled: boolean) => void;
   setHapticsEnabled: (enabled: boolean) => void;
+  setSpiceLevel: (level: SpiceLevel) => void;
+  setDietaryFocus: (focus: DietaryFocus) => void;
+  togglePreferredCuisine: (cuisine: string) => void;
 };
 
 const STORAGE_KEY = 'savorly.app-settings.v1';
@@ -49,6 +57,9 @@ const DEFAULT_SETTINGS: SettingsState = {
   smartSuggestions: true,
   pushAlerts: false,
   hapticsEnabled: true,
+  spiceLevel: 'medium',
+  dietaryFocus: 'balanced',
+  preferredCuisines: [],
 };
 
 export const APP_THEMES: AppTheme[] = [
@@ -174,6 +185,23 @@ export function SettingsProvider({ children }: PropsWithChildren) {
       },
       setHapticsEnabled(hapticsEnabled) {
         setSettings((current) => ({ ...current, hapticsEnabled }));
+      },
+      setSpiceLevel(spiceLevel) {
+        setSettings((current) => ({ ...current, spiceLevel }));
+      },
+      setDietaryFocus(dietaryFocus) {
+        setSettings((current) => ({ ...current, dietaryFocus }));
+      },
+      togglePreferredCuisine(cuisine) {
+        setSettings((current) => {
+          const exists = current.preferredCuisines.includes(cuisine);
+          return {
+            ...current,
+            preferredCuisines: exists
+              ? current.preferredCuisines.filter((item) => item !== cuisine)
+              : [...current.preferredCuisines, cuisine],
+          };
+        });
       },
     }),
     [isReady, settings]

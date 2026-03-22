@@ -4,18 +4,51 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useRecipes } from '@/components/recipes-provider';
 import { useSettings } from '@/components/settings-provider';
 import { getUiCopy } from '@/utils/app-settings-display';
 
 export default function AddRecipeScreen() {
   const { width } = useWindowDimensions();
   const isCompact = width < 420;
+  const { addRecipeFromIdea } = useRecipes();
   const { settings, theme } = useSettings();
   const copy = getUiCopy(settings.language);
   const [title, setTitle] = useState('');
   const [cuisine, setCuisine] = useState('');
   const [cookTime, setCookTime] = useState('');
   const [description, setDescription] = useState('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  async function handleSaveRecipe() {
+    setErrorMessage(null);
+
+    if (!title.trim()) {
+      setErrorMessage('Give the smart draft at least a recipe title to work from.');
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const recipe = addRecipeFromIdea({
+        title,
+        cuisine,
+        cookTime,
+        description,
+      });
+
+      router.replace({
+        pathname: '/recipe/[id]',
+        params: { id: recipe.id },
+      });
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to build a smart recipe draft right now.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.appBackground }]}>
@@ -30,7 +63,7 @@ export default function AddRecipeScreen() {
             <Text style={[styles.eyebrow, { color: theme.accent }]}>{copy.yourRecipe}</Text>
             <Text style={styles.title}>Add something worth saving.</Text>
             <Text style={styles.subtitle}>
-              Start building your own cookbook inside Savorly. You can wire this up to storage later.
+              Start with a rough idea and Savorly will generate a smarter draft with inferred tags, ingredients, and steps.
             </Text>
           </View>
 
@@ -83,11 +116,13 @@ export default function AddRecipeScreen() {
               />
             </View>
 
-            <Pressable style={[styles.primaryButton, { backgroundColor: theme.accent }]}>
-              <Text style={styles.primaryButtonText}>{copy.saveRecipe}</Text>
+            {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+
+            <Pressable style={[styles.primaryButton, { backgroundColor: theme.accent }, isSaving && styles.buttonDisabled]} onPress={handleSaveRecipe} disabled={isSaving}>
+              <Text style={styles.primaryButtonText}>{isSaving ? 'Building smart draft...' : copy.saveRecipe}</Text>
             </Pressable>
 
-            <Text style={styles.helperText}>This screen is ready for your future recipe-save logic.</Text>
+            <Text style={styles.helperText}>The app will infer missing details, suggest tags, and save the recipe directly into your collection.</Text>
           </View>
         </View>
       </ScrollView>
@@ -205,11 +240,21 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
   },
+  errorText: {
+    marginTop: 4,
+    marginBottom: 10,
+    color: '#B1382F',
+    fontSize: 13,
+    fontWeight: '700',
+  },
   helperText: {
     marginTop: 14,
     color: '#8A7B73',
     fontSize: 12,
     lineHeight: 18,
     textAlign: 'center',
+  },
+  buttonDisabled: {
+    opacity: 0.75,
   },
 });

@@ -15,7 +15,7 @@ export default function LandingScreen() {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { profile, user } = useAuth();
-  const { recipes, toggleFavorite } = useRecipes();
+  const { recipes, smartSuggestions, toggleFavorite } = useRecipes();
   const { settings, theme } = useSettings();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const edgeSwipeResponder = useMemo(
@@ -168,6 +168,32 @@ export default function LandingScreen() {
               })}
             </View>
           </View>
+
+          {settings.smartSuggestions && smartSuggestions.length > 0 ? (
+            <View style={styles.previewSection}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>For you</Text>
+                <Text style={[styles.sectionCaption, { color: theme.accent }]}>Smart suggestions</Text>
+              </View>
+
+              <View style={styles.smartList}>
+                {smartSuggestions.slice(0, 3).map((item) => (
+                  <Pressable
+                    key={item.recipe.id}
+                    style={[styles.smartCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
+                    onPress={() => router.push({ pathname: '/recipe/[id]', params: { id: item.recipe.id } })}>
+                    <View style={styles.smartCardBody}>
+                      <Text style={styles.smartTitle}>{item.recipe.title}</Text>
+                      <Text style={styles.smartReason}>{item.reason}</Text>
+                    </View>
+                    <Text style={[styles.smartBadge, { backgroundColor: theme.accentSoft, color: theme.accent }]}>
+                      {formatCookTime(item.recipe.cookTime, settings.language)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          ) : null}
         </View>
       </ScrollView>
 
@@ -317,6 +343,27 @@ const styles = StyleSheet.create({
   sectionTitle: { color: '#251712', fontSize: 22, fontWeight: '800' },
   sectionCaption: { color: '#A16244', fontSize: 12, fontWeight: '700' },
   previewGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  smartList: { gap: 10 },
+  smartCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  smartCardBody: { flex: 1 },
+  smartTitle: { color: '#251712', fontSize: 16, fontWeight: '800' },
+  smartReason: { marginTop: 5, color: '#6D5D55', fontSize: 13, lineHeight: 18 },
+  smartBadge: {
+    borderRadius: 999,
+    overflow: 'hidden',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 12,
+    fontWeight: '800',
+  },
   previewCard: {
     borderRadius: 24,
     overflow: 'hidden',
