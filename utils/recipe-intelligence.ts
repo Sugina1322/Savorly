@@ -31,6 +31,7 @@ export type MealPlannerFilterKey = 'smart' | 'saved' | 'budget' | 'quick' | 'hig
 export type UserInteractions = {
   searches: string[];
   viewsByRecipeId: Record<string, number>;
+  recentlySavedRecipeIds: string[];
 };
 
 export type TasteProfile = {
@@ -99,6 +100,55 @@ const DETAILED_STEP_VERB_PATTERN =
   /\b(add|bake|beat|blend|boil|brown|cook|drain|fold|fry|grill|heat|marinate|mix|pour|rest|roast|saute|season|serve|simmer|slice|stir|toast|whisk)\b/i;
 const DETAILED_STEP_CONTEXT_PATTERN =
   /\b(until|for|minutes?|minute|seconds?|second|golden|soft|smooth|combined|fragrant|through|warm|cool|chilled|covered|tender|crisp)\b/i;
+const INGREDIENT_TOKEN_EXCLUSIONS = new Set([
+  'about',
+  'and',
+  'black',
+  'boneless',
+  'breast',
+  'clove',
+  'cloves',
+  'cooked',
+  'cup',
+  'cups',
+  'diced',
+  'divided',
+  'drained',
+  'fresh',
+  'gram',
+  'grams',
+  'g',
+  'kg',
+  'handful',
+  'large',
+  'medium',
+  'minced',
+  'oil',
+  'optional',
+  'ounce',
+  'ounces',
+  'oz',
+  'peeled',
+  'pepper',
+  'piece',
+  'pieces',
+  'plus',
+  'pound',
+  'pounds',
+  'salt',
+  'serving',
+  'small',
+  'sliced',
+  'taste',
+  'teaspoon',
+  'teaspoons',
+  'tablespoon',
+  'tablespoons',
+  'tbsp',
+  'tsp',
+  'water',
+  'white',
+]);
 
 export function isLikelyRemoteImageUrl(value: string) {
   const trimmed = value.trim();
@@ -117,6 +167,91 @@ export function hasDetailedInstructionStep(value: string) {
     words.length >= 6 &&
     DETAILED_STEP_VERB_PATTERN.test(trimmed) &&
     (DETAILED_STEP_CONTEXT_PATTERN.test(trimmed) || words.length >= 10 || /,/.test(trimmed))
+  );
+}
+
+function normalizeRecipeLines(values: string[] | undefined) {
+  return (values ?? []).map((value) => value.trim()).filter(Boolean);
+}
+
+function getMeaningfulIngredientTokens(ingredient: string) {
+  return unique(
+    tokenize(
+      ingredient.replace(/\b(to taste|for serving|for garnish|for frying|as needed)\b/gi, '')
+    ).filter((token) => token.length > 2 && !INGREDIENT_TOKEN_EXCLUSIONS.has(token))
+  );
+}
+
+function hasSufficientIngredientCoverage(ingredients: string[], steps: string[]) {
+  const combinedSteps = normalize(steps.join(' '));
+  const ingredientTokenGroups = ingredients
+    .map((ingredient) => getMeaningfulIngredientTokens(ingredient))
+    .filter((tokens) => tokens.length > 0);
+
+  if (ingredientTokenGroups.length === 0) {
+    return false;
+  }
+
+  const matchedGroups = ingredientTokenGroups.filter((tokens) => tokens.some((token) => combinedSteps.includes(token)));
+  const requiredMatches = Math.max(2, Math.ceil(ingredientTokenGroups.length * 0.6));
+
+  return matchedGroups.length >= Math.min(requiredMatches, ingredientTokenGroups.length);
+}
+
+export function getRecipeReliabilityError(input: AddRecipeIdea) {
+  const normalizedTitle = input.title.trim();
+  const parsedCookTime = parseCookTimeMinutes(input.cookTime);
+  const parsedServings = parseServingsCount(input.servings ?? '');
+  const ingredients = normalizeRecipeLines(input.ingredients);
+  const steps = normalizeRecipeLines(input.steps);
+
+  if (!normalizedTitle) {
+    return 'Reliable recipes need a clear title.';
+  }
+
+  if (!parsedCookTime) {
+    return 'Reliable recipes need a valid cook time.';
+  }
+
+  if (!parsedServings) {
+    return 'Reliable recipes need a valid servings count.';
+  }
+
+  if (ingredients.length === 0) {
+    return 'Reliable recipes need a complete ingredient list.';
+  }
+
+  if (ingredients.some((ingredient) => !hasIngredientMeasurement(ingredient))) {
+    return 'Each ingredient needs an actual amount or preparation note before it can be saved as reliable.';
+  }
+
+  if (steps.length < 3) {
+    return 'Reliable recipes need at least three cooking steps.';
+  }
+
+  if (steps.some((step) => !hasDetailedInstructionStep(step))) {
+    return 'Each cooking step needs enough action, timing, or texture detail to be dependable.';
+  }
+
+  if (!hasSufficientIngredientCoverage(ingredients, steps)) {
+    return 'Your method should mention the key ingredients so the instructions match the ingredient list.';
+  }
+
+  return null;
+}
+
+export function isRecipeReliable(recipe: Recipe) {
+  return (
+    getRecipeReliabilityError({
+      title: recipe.title,
+      cuisine: recipe.cuisine,
+      cookTime: `${recipe.cookTime}`,
+      servings: `${recipe.servings}`,
+      description: recipe.description,
+      image: recipe.image,
+      ingredients: recipe.ingredients,
+      steps: recipe.steps,
+    }) === null
   );
 }
 
@@ -575,6 +710,12 @@ export function buildKitchenPulse(
 ): KitchenPulse {
   const scores: Record<string, number> = {};
   const savedRecipes = recipes.filter((recipe) => recipe.saved);
+  const savedRecipeScores: Record<string, number> = {};
+  const recentFavoriteScores: Record<string, number> = {};
+  const recentFavoriteIds = interactions.recentlySavedRecipeIds.slice(-5);
+  const recentFavoriteRecipes = recentFavoriteIds
+    .map((recipeId) => recipes.find((recipe) => recipe.id === recipeId))
+    .filter((recipe): recipe is Recipe => Boolean(recipe?.saved));
   const categoryFrequency = recipes.reduce<Record<string, number>>((map, recipe) => {
     recipe.categories.forEach((category) => {
       map[category] = (map[category] ?? 0) + 1;
@@ -588,13 +729,30 @@ export function buildKitchenPulse(
     const specificityBoost = Math.log(1 + totalRecipes / frequency);
     incrementWeight(scores, category, amount * specificityBoost);
   };
+  const applyRecentFavoriteWeight = (category: string, amount: number) => {
+    const frequency = categoryFrequency[category] ?? 1;
+    const specificityBoost = Math.log(1 + totalRecipes / frequency);
+    incrementWeight(recentFavoriteScores, category, amount * specificityBoost);
+    incrementWeight(scores, category, amount * specificityBoost);
+  };
+  const applySavedRecipeWeight = (category: string, amount: number) => {
+    const frequency = categoryFrequency[category] ?? 1;
+    const specificityBoost = Math.log(1 + totalRecipes / frequency);
+    incrementWeight(savedRecipeScores, category, amount * specificityBoost);
+    incrementWeight(scores, category, amount * specificityBoost);
+  };
 
   Object.entries(tasteProfile.categories).forEach(([category, score]) => {
     applyCategoryWeight(category, score);
   });
 
+  recentFavoriteRecipes.forEach((recipe, index, array) => {
+    const recencyWeight = array.length - index + 8;
+    recipe.categories.forEach((category) => applyRecentFavoriteWeight(category, recencyWeight));
+  });
+
   savedRecipes.forEach((recipe) => {
-    recipe.categories.forEach((category) => applyCategoryWeight(category, 4));
+    recipe.categories.forEach((category) => applySavedRecipeWeight(category, 4));
   });
 
   Object.entries(interactions.viewsByRecipeId).forEach(([recipeId, viewCount]) => {
@@ -645,11 +803,23 @@ export function buildKitchenPulse(
     recipe.categories.forEach((category) => applyCategoryWeight(category, 2));
   });
 
-  const winner = Object.entries(scores).sort((left, right) => right[1] - left[1])[0]?.[0] ?? 'Still learning';
+  const recentFavoriteWinner =
+    Object.entries(recentFavoriteScores).sort((left, right) => right[1] - left[1])[0]?.[0];
+  const savedRecipeWinner =
+    Object.entries(savedRecipeScores).sort((left, right) => right[1] - left[1])[0]?.[0];
+  const winner =
+    (recentFavoriteRecipes.length >= 5 ? recentFavoriteWinner : undefined) ??
+    (savedRecipes.length >= 5 ? savedRecipeWinner : undefined) ??
+    Object.entries(scores).sort((left, right) => right[1] - left[1])[0]?.[0] ??
+    'Still learning';
 
   let reason = 'Still learning from your recipe habits.';
 
-  if (currentPlannedRecipe && currentPlannedRecipe.categories.includes(winner)) {
+  if (recentFavoriteRecipes.length >= 5 && recentFavoriteWinner === winner) {
+    reason = `Your latest ${recentFavoriteRecipes.length} favorites are clustering around ${winner.toLowerCase()}.`;
+  } else if (savedRecipes.length >= 5 && savedRecipeWinner === winner) {
+    reason = `Your saved recipes are clustering around ${winner.toLowerCase()} right now.`;
+  } else if (currentPlannedRecipe && currentPlannedRecipe.categories.includes(winner)) {
     reason = `Leaning into ${winner.toLowerCase()} because it matches your current planned ${currentSlot}.`;
   } else if (interactions.searches.length > 0) {
     reason = `Leaning into ${winner.toLowerCase()} from your recent searches, saves, and recipe views.`;
@@ -1128,22 +1298,33 @@ export function buildRecipeDraft({
   steps: customSteps,
   title,
 }: AddRecipeIdea): Recipe {
-  const finalTitle = title.trim() || 'Smart Kitchen Creation';
+  const reliabilityError = getRecipeReliabilityError({
+    title,
+    cuisine,
+    cookTime,
+    servings,
+    description,
+    image,
+    ingredients: customIngredients,
+    steps: customSteps,
+  });
+
+  if (reliabilityError) {
+    throw new Error(reliabilityError);
+  }
+
+  const normalizedIngredients = normalizeRecipeLines(customIngredients);
+  const normalizedSteps = normalizeRecipeLines(customSteps);
+  const finalTitle = title.trim();
   const finalCuisine = inferCuisine(finalTitle, cuisine);
-  const finalCookTime = inferCookTime(cookTime, finalTitle);
-  const parsedServings = servings ? parseServingsCount(servings) : null;
+  const finalCookTime = parseCookTimeMinutes(cookTime)!;
+  const parsedServings = parseServingsCount(servings ?? '')!;
   const finalDescription =
     description.trim() ||
     `A home-cooked ${finalCuisine.toLowerCase()} recipe built around ${finalTitle.toLowerCase()}.`;
-  const ingredients =
-    customIngredients && customIngredients.length > 0
-      ? unique(customIngredients.map((ingredient) => ingredient.trim()).filter(Boolean))
-      : inferIngredients(finalTitle, finalCuisine, finalDescription);
+  const ingredients = normalizedIngredients;
   const tags = inferTags(finalTitle, finalDescription, finalCookTime);
-  const steps =
-    customSteps && customSteps.length > 0
-      ? customSteps.map((step) => step.trim()).filter(Boolean)
-      : buildSteps(finalTitle, ingredients, finalCookTime, finalCuisine, finalDescription);
+  const steps = normalizedSteps;
   const customImage = image?.trim() ?? '';
 
   return {
@@ -1153,7 +1334,7 @@ export function buildRecipeDraft({
     image: isLikelyRemoteImageUrl(customImage) ? customImage : getSmartImage(finalTitle, finalCuisine),
     cuisine: finalCuisine,
     cookTime: finalCookTime,
-    servings: parsedServings ?? (finalCookTime <= 15 ? 2 : 4),
+    servings: parsedServings,
     featured: false,
     saved: true,
     categories: inferCategories(finalTitle, finalCuisine, finalDescription, tags, finalCookTime, ingredients),
@@ -1177,12 +1358,5 @@ function isLegacyGeneratedSteps(steps: string[]) {
 }
 
 export function upgradeLegacyUserRecipe(recipe: Recipe): Recipe {
-  if (!recipe.isUserCreated || !isLegacyGeneratedSteps(recipe.steps)) {
-    return recipe;
-  }
-
-  return {
-    ...recipe,
-    steps: buildSteps(recipe.title, recipe.ingredients, recipe.cookTime, recipe.cuisine, recipe.description),
-  };
+  return recipe;
 }

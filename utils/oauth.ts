@@ -42,6 +42,21 @@ export function getOAuthRedirectUrl() {
   });
 }
 
+export function getRecoveryRedirectUrl() {
+  const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
+  return makeRedirectUri({
+    path: 'reset-password',
+    ...(isExpoGo
+      ? {}
+      : {
+          scheme: 'savorly',
+          native: 'savorly://reset-password',
+        }),
+    preferLocalhost: true,
+  });
+}
+
 function getTokensFromUrl(url: string): OAuthSessionResult {
   const [baseUrl, hash] = url.split('#');
   const parsed = new URL(hash ? `${baseUrl}?${hash}` : url);

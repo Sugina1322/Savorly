@@ -126,10 +126,11 @@ const DISCOVER_COPY: Record<AppLanguage, DiscoverScreenCopy> = {
 export default function DiscoverScreen() {
   const { width } = useWindowDimensions();
   const { user } = useAuth();
-  const { featuredPick, recipes, toggleFavorite } = useRecipes();
+  const { featuredPick, kitchenPulse, recipes, savedCount, smartSuggestions, tasteProfile, toggleFavorite } = useRecipes();
   const { settings, theme } = useSettings();
-  const copy = getUiCopy(settings.language);
-  const screenCopy = DISCOVER_COPY[settings.language];
+  const effectiveLanguage: AppLanguage = settings.language === 'ko' || settings.language === 'ja' ? 'en' : settings.language;
+  const copy = getUiCopy(effectiveLanguage);
+  const screenCopy = DISCOVER_COPY[effectiveLanguage];
   const isSignedIn = Boolean(user);
   const featuredRecipe = featuredPick?.recipe ?? recipes[0];
   const featuredReason = featuredPick?.reason ?? 'Picked from today\'s recipe rotation.';
@@ -139,13 +140,78 @@ export default function DiscoverScreen() {
   const gridCardWidth = (contentWidth - 12) / 2;
   const dessertCount = recipes.filter((recipe) => recipe.categories.includes('Dessert')).length;
   const drinksCount = recipes.filter((recipe) => recipe.categories.includes('Drinks')).length;
+  const topCuisine = Object.entries(tasteProfile.cuisines).sort((left, right) => right[1] - left[1])[0]?.[0];
+  const topTag = Object.entries(tasteProfile.tags).sort((left, right) => right[1] - left[1])[0]?.[0];
+  const topCategory = Object.entries(tasteProfile.categories).sort((left, right) => right[1] - left[1])[0]?.[0];
 
   const filteredRecipes = useMemo(
     () => recipes.filter((recipe) => matchesCategory(activeFilter, recipe.categories)),
     [activeFilter, recipes]
   );
 
-  const spotlightRecipes = filteredRecipes.filter((recipe) => recipe.id !== featuredRecipe.id).slice(0, 6);
+  const forYouRecipes = useMemo(() => {
+    const suggestionRecipes = smartSuggestions.map((item) => item.recipe);
+    const pool = [featuredRecipe, ...suggestionRecipes, ...filteredRecipes];
+    const uniqueRecipes = pool.filter((recipe, index, array) => array.findIndex((item) => item.id === recipe.id) === index);
+
+    return uniqueRecipes
+      .filter((recipe) => matchesCategory(activeFilter, recipe.categories))
+      .slice(0, 8);
+  }, [activeFilter, featuredRecipe, filteredRecipes, smartSuggestions]);
+
+  const spotlightRecipes = forYouRecipes.filter((recipe) => recipe.id !== featuredRecipe.id).slice(0, 6);
+  const personalSignals = [
+    topCuisine
+      ? {
+          key: 'cuisine',
+          label: 'Top cuisine',
+          value: topCuisine,
+          copy: 'This board is leaning into the flavors you come back to most.',
+        }
+      : null,
+    topTag
+      ? {
+          key: 'tag',
+          label: 'Top mood',
+          value: topTag,
+          copy: 'Recipes with this vibe are getting more room near the top.',
+        }
+      : null,
+    topCategory
+      ? {
+          key: 'category',
+          label: 'Top category',
+          value: topCategory,
+          copy: 'Discover is surfacing more of this lane based on what you save and open.',
+        }
+      : null,
+  ].filter(Boolean) as { key: string; label: string; value: string; copy: string }[];
+  const mealMomentPicks = [
+    {
+      key: 'breakfast',
+      label: 'Breakfast',
+      copy: 'Easy starts and quick plates',
+      recipe:
+        forYouRecipes.find((recipe) => recipe.categories.includes('Breakfast')) ??
+        recipes.find((recipe) => recipe.categories.includes('Breakfast')),
+    },
+    {
+      key: 'lunch',
+      label: 'Lunch',
+      copy: 'Faster mains for the middle of the day',
+      recipe:
+        forYouRecipes.find((recipe) => recipe.categories.includes('Everyday food') || recipe.categories.includes('Pantry-friendly')) ??
+        recipes.find((recipe) => recipe.categories.includes('Everyday food')),
+    },
+    {
+      key: 'dinner',
+      label: 'Dinner',
+      copy: 'Comfort picks worth cooking tonight',
+      recipe:
+        forYouRecipes.find((recipe) => recipe.tags.includes('Comfort') || recipe.categories.includes('Everyday food')) ??
+        recipes.find((recipe) => recipe.tags.includes('Comfort')),
+    },
+  ].filter((item) => Boolean(item.recipe));
   const shelves = DISCOVER_SHELVES.map((shelf) => ({
     ...shelf,
     recipes: recipes.filter((recipe) => recipe.categories.includes(shelf.key)).slice(0, 6),
@@ -176,7 +242,11 @@ export default function DiscoverScreen() {
       <View style={styles.header}>
         <Text style={[styles.eyebrow, { color: theme.accent }]}>{copy.appName}</Text>
         <Text style={styles.title}>{screenCopy.title}</Text>
-        <Text style={styles.subtitle}>{screenCopy.subtitle}</Text>
+        <Text style={styles.subtitle}>
+          {isSignedIn
+            ? `${screenCopy.subtitle} This board now leans into what you save, search, and open most.`
+            : screenCopy.subtitle}
+        </Text>
 
         <View style={styles.headerActions}>
           <Pressable
@@ -207,8 +277,31 @@ export default function DiscoverScreen() {
         </View>
       </Pressable>
 
-      <View style={[styles.categoryCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
-        <View style={styles.categoryHeader}>
+      <View style={[styles.fypPulseCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+        <View style={styles.fypPulseHeader}>
+          <View>
+            <Text style={styles.fypPulseLabel}>For you right now</Text>
+            <Text style={styles.fypPulseTitle}>{kitchenPulse.category}</Text>
+            <Text style={styles.fypPulseCopy}>{kitchenPulse.reason}</Text>
+          </View>
+          <View style={styles.fypSignalStack}>
+            {topCuisine ? (
+              <View style={[styles.signalChip, { backgroundColor: theme.accentSoft }]}>
+                <Text style={[styles.signalChipText, { color: theme.accent }]}>Cuisine: {topCuisine}</Text>
+              </View>
+            ) : null}
+            {topTag ? (
+              <View style={[styles.signalChip, { backgroundColor: theme.accentSoft }]}>
+                <Text style={[styles.signalChipText, { color: theme.accent }]}>Mood: {topTag}</Text>
+              </View>
+            ) : null}
+            <View style={[styles.signalChip, { backgroundColor: theme.accentSoft }]}>
+              <Text style={[styles.signalChipText, { color: theme.accent }]}>{savedCount} saved</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.filterHeader}>
           <View>
             <Text style={styles.categoryTitle}>{screenCopy.browseByCategory}</Text>
             <Text style={styles.categoryCopy}>{screenCopy.browseByCategoryCopy}</Text>
@@ -247,18 +340,38 @@ export default function DiscoverScreen() {
         </ScrollView>
       </View>
 
+      {personalSignals.length > 0 ? (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>More of your taste</Text>
+            <Text style={[styles.sectionCaption, { color: theme.accent }]}>{personalSignals.length} signals</Text>
+          </View>
+          <Text style={styles.sectionCopy}>These quick reads explain why your Discover board feels more personal right now.</Text>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.signalCardsRow}>
+            {personalSignals.map((signal) => (
+              <View
+                key={signal.key}
+                style={[styles.signalCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+                <Text style={[styles.signalCardLabel, { color: theme.accent }]}>{signal.label}</Text>
+                <Text style={styles.signalCardValue}>{signal.value}</Text>
+                <Text style={styles.signalCardCopy}>{signal.copy}</Text>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
+
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>
-            {activeFilter === 'all'
-              ? screenCopy.startHere
-              : `${DISCOVER_FILTERS.find((filter) => filter.key === activeFilter)?.label ?? 'Selected'} ${screenCopy.selectedPicks}`}
+            {activeFilter === 'all' ? 'Your feed' : `${DISCOVER_FILTERS.find((filter) => filter.key === activeFilter)?.label ?? 'Selected'} ${screenCopy.selectedPicks}`}
           </Text>
-          <Text style={[styles.sectionCaption, { color: theme.accent }]}>{spotlightRecipes.length} recipes</Text>
+          <Text style={[styles.sectionCaption, { color: theme.accent }]}>{forYouRecipes.length} recipes</Text>
         </View>
         <Text style={styles.sectionCopy}>
           {activeFilter === 'all'
-            ? screenCopy.startHereCopy
+            ? 'A more personal mix from your recent taste signals, faster wins, and standout dishes.'
             : screenCopy.selectedCopy}
         </Text>
 
@@ -292,6 +405,38 @@ export default function DiscoverScreen() {
           ))}
         </ScrollView>
       </View>
+
+      {mealMomentPicks.length > 0 ? (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Pick by meal</Text>
+            <Pressable onPress={() => router.push('/foods')}>
+              <Text style={[styles.sectionAction, { color: theme.accent }]}>See all foods</Text>
+            </Pressable>
+          </View>
+          <Text style={styles.sectionCopy}>A faster way to decide when you only need a good breakfast, lunch, or dinner answer.</Text>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.momentRow}>
+            {mealMomentPicks.map((item) => {
+              const recipe = item.recipe!;
+
+              return (
+                <Pressable
+                  key={item.key}
+                  style={[styles.momentCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
+                  onPress={() => openRecipe(recipe.id)}>
+                  <Text style={[styles.momentLabel, { color: theme.accent }]}>{item.label}</Text>
+                  <Text style={styles.momentRecipeTitle}>{recipe.title}</Text>
+                  <Text style={styles.momentCopy}>{item.copy}</Text>
+                  <Text style={styles.momentMeta}>
+                    {recipe.cuisine} - {formatCookTime(recipe.cookTime, settings.language)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      ) : null}
 
       {shelves.map((shelf) => (
         <View key={shelf.key} style={styles.section}>
@@ -469,6 +614,52 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 18,
   },
+  fypPulseCard: {
+    marginTop: 18,
+    borderRadius: 28,
+    borderWidth: 1,
+    padding: 18,
+    gap: 18,
+  },
+  fypPulseHeader: {
+    gap: 14,
+  },
+  fypPulseLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    color: '#A36B46',
+  },
+  fypPulseTitle: {
+    marginTop: 6,
+    color: '#23150F',
+    fontSize: 24,
+    fontWeight: '800',
+  },
+  fypPulseCopy: {
+    marginTop: 6,
+    color: '#6B5F58',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  fypSignalStack: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  signalChip: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  signalChipText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  filterHeader: {
+    gap: 12,
+  },
   categoryHeader: {
     gap: 12,
   },
@@ -544,10 +735,74 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
+  signalCardsRow: {
+    gap: 12,
+    marginTop: 14,
+    paddingRight: 8,
+  },
+  signalCard: {
+    width: 220,
+    borderRadius: 24,
+    borderWidth: 1,
+    padding: 16,
+  },
+  signalCardLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  signalCardValue: {
+    marginTop: 10,
+    color: '#23150F',
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  signalCardCopy: {
+    marginTop: 8,
+    color: '#6B5F58',
+    fontSize: 13,
+    lineHeight: 18,
+  },
   railRow: {
     gap: 12,
     marginTop: 14,
     paddingRight: 8,
+  },
+  momentRow: {
+    gap: 12,
+    marginTop: 14,
+    paddingRight: 8,
+  },
+  momentCard: {
+    width: 220,
+    borderRadius: 24,
+    borderWidth: 1,
+    padding: 16,
+  },
+  momentLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  momentRecipeTitle: {
+    marginTop: 10,
+    color: '#23150F',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  momentCopy: {
+    marginTop: 6,
+    color: '#6B5F58',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  momentMeta: {
+    marginTop: 12,
+    color: '#A36B46',
+    fontSize: 12,
+    fontWeight: '700',
   },
   railCard: {
     borderRadius: 26,

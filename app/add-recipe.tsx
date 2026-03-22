@@ -1,12 +1,14 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useEffect, useMemo, useState } from 'react';
+import { Animated, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
 import { useAuth } from '@/components/auth-provider';
+import { BrandMark } from '@/components/brand-mark';
 import { useRecipes } from '@/components/recipes-provider';
+import { ResponsiveScrollScreen } from '@/components/responsive-scroll-screen';
 import type { AppLanguage } from '@/components/settings-provider';
 import { useSettings } from '@/components/settings-provider';
 import { PROTECTED_AUTH_ROUTES, useProtectedRouteGuard } from '@/utils/auth-gate';
@@ -48,6 +50,11 @@ type AddRecipeCopy = {
   save: string;
   saving: string;
   helper: string;
+  autosaveDraft: string;
+  autosaving: string;
+  autosaved: string;
+  restoredDraft: string;
+  clearedDraft: string;
   titleError: string;
   cookTimeError: string;
   servingsError: string;
@@ -91,6 +98,11 @@ const ADD_RECIPE_COPY: Record<AppLanguage, AddRecipeCopy> = {
     save: 'Save recipe',
     saving: 'Saving recipe...',
     helper: 'Savorly now keeps your exact image, ingredients, servings, and detailed steps instead of turning them into a vague draft.',
+    autosaveDraft: 'Draft autosave is on for this recipe.',
+    autosaving: 'Saving draft...',
+    autosaved: 'Draft saved',
+    restoredDraft: 'Draft restored',
+    clearedDraft: 'Draft cleared after save',
     titleError: 'Give your recipe a title.',
     cookTimeError: 'Add an accurate cook time, like `30` or `1 hr 15 min`.',
     servingsError: 'Add how many servings this recipe makes.',
@@ -132,6 +144,11 @@ const ADD_RECIPE_COPY: Record<AppLanguage, AddRecipeCopy> = {
     save: 'Guardar receta',
     saving: 'Guardando receta...',
     helper: 'Savorly ahora guarda tu imagen, ingredientes, porciones y pasos exactos en lugar de un borrador vago.',
+    autosaveDraft: 'El autoguardado del borrador esta activado.',
+    autosaving: 'Guardando borrador...',
+    autosaved: 'Borrador guardado',
+    restoredDraft: 'Borrador recuperado',
+    clearedDraft: 'Borrador eliminado despues de guardar',
     titleError: 'Ponle un titulo a tu receta.',
     cookTimeError: 'Agrega un tiempo de coccion correcto, como `30` o `1 hr 15 min`.',
     servingsError: 'Agrega cuantas porciones rinde la receta.',
@@ -173,6 +190,11 @@ const ADD_RECIPE_COPY: Record<AppLanguage, AddRecipeCopy> = {
     save: 'Enregistrer',
     saving: 'Enregistrement...',
     helper: 'Savorly conserve maintenant votre image, vos ingredients, vos portions et vos etapes exactes.',
+    autosaveDraft: 'La sauvegarde auto du brouillon est activee.',
+    autosaving: 'Sauvegarde du brouillon...',
+    autosaved: 'Brouillon enregistre',
+    restoredDraft: 'Brouillon restaure',
+    clearedDraft: 'Brouillon efface apres enregistrement',
     titleError: 'Donnez un titre a votre recette.',
     cookTimeError: 'Ajoutez un temps de cuisson correct, comme `30` ou `1 hr 15 min`.',
     servingsError: 'Ajoutez le nombre de portions.',
@@ -214,6 +236,11 @@ const ADD_RECIPE_COPY: Record<AppLanguage, AddRecipeCopy> = {
     save: 'I-save ang recipe',
     saving: 'Sine-save ang recipe...',
     helper: 'Iniingatan na ngayon ng Savorly ang eksaktong image, sangkap, servings, at detalyadong steps mo.',
+    autosaveDraft: 'Naka-on ang autosave ng draft para sa recipe na ito.',
+    autosaving: 'Sine-save ang draft...',
+    autosaved: 'Na-save ang draft',
+    restoredDraft: 'Naibalik ang draft',
+    clearedDraft: 'Na-clear ang draft matapos mag-save',
     titleError: 'Lagyan ng title ang recipe mo.',
     cookTimeError: 'Maglagay ng tamang cook time gaya ng `30` o `1 hr 15 min`.',
     servingsError: 'Ilagay kung ilang servings ang recipe na ito.',
@@ -255,6 +282,11 @@ const ADD_RECIPE_COPY: Record<AppLanguage, AddRecipeCopy> = {
     save: '레시피 저장',
     saving: '레시피 저장 중...',
     helper: '이제 Savorly는 입력한 이미지, 재료, 인분, 조리 단계를 그대로 저장해 두기 때문에 예전처럼 흐릿한 초안이 되지 않아요.',
+    autosaveDraft: '이 레시피는 초안 자동 저장이 켜져 있어요.',
+    autosaving: '초안 저장 중...',
+    autosaved: '초안 저장됨',
+    restoredDraft: '초안 복원됨',
+    clearedDraft: '저장 후 초안을 정리했어요',
     titleError: '레시피 이름을 입력해 주세요.',
     cookTimeError: '`30` 또는 `1 hr 15 min`처럼 정확한 조리 시간을 입력해 주세요.',
     servingsError: '몇 인분인지 입력해 주세요.',
@@ -296,6 +328,11 @@ const ADD_RECIPE_COPY: Record<AppLanguage, AddRecipeCopy> = {
     save: 'レシピを保存',
     saving: '保存中...',
     helper: 'Savorly は入力した画像、材料、人数、手順をそのまま保存するので、あいまいな下書きになりません。',
+    autosaveDraft: 'このレシピでは下書きの自動保存が有効です。',
+    autosaving: '下書きを保存中...',
+    autosaved: '下書きを保存しました',
+    restoredDraft: '下書きを復元しました',
+    clearedDraft: '保存後に下書きを削除しました',
     titleError: 'レシピ名を入力してください。',
     cookTimeError: '`30` や `1 hr 15 min` のように正しい調理時間を入力してください。',
     servingsError: '何人分かを入力してください。',
@@ -322,7 +359,8 @@ export default function AddRecipeScreen() {
   const params = useLocalSearchParams<{ recipeId?: string }>();
   const { addRecipeFromIdea, recipes, updateRecipeFromIdea } = useRecipes();
   const { settings, theme } = useSettings();
-  const screenCopy = ADD_RECIPE_COPY[settings.language];
+  const effectiveLanguage: AppLanguage = settings.language === 'ko' || settings.language === 'ja' ? 'en' : settings.language;
+  const screenCopy = ADD_RECIPE_COPY[effectiveLanguage];
   const hasAccess = useProtectedRouteGuard(isAuthLoading, Boolean(user), PROTECTED_AUTH_ROUTES.addRecipe);
   const incomingRecipeId =
     typeof params.recipeId === 'string' ? params.recipeId : Array.isArray(params.recipeId) ? params.recipeId[0] ?? '' : '';
@@ -338,35 +376,137 @@ export default function AddRecipeScreen() {
   const [stepsInput, setStepsInput] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [draftState, setDraftState] = useState<'idle' | 'saving' | 'saved' | 'restored' | 'cleared'>('idle');
+  const [isDraftReady, setIsDraftReady] = useState(false);
+  const draftPulse = useMemo(() => new Animated.Value(0), []);
   const trimmedImageUrl = imageUrl.trim();
   const hasCustomPreview = trimmedImageUrl.length > 0 && isLikelyRemoteImageUrl(trimmedImageUrl);
+  const ingredientLines = useMemo(() => parseListInput(ingredientsInput), [ingredientsInput]);
+  const stepLines = useMemo(() => parseListInput(stepsInput), [stepsInput]);
+  const recipeReadinessCount = [
+    Boolean(title.trim()),
+    Boolean(parseCookTimeMinutes(cookTime)),
+    Boolean(parseServingsCount(servings)),
+    ingredientLines.length > 0,
+    stepLines.length >= 3,
+  ].filter(Boolean).length;
+  const recipeReadinessLabel =
+    recipeReadinessCount === 5
+      ? 'Ready to save'
+      : `${5 - recipeReadinessCount} thing${5 - recipeReadinessCount === 1 ? '' : 's'} left`;
+  const draftStorageKey = `savorly.recipe-draft.v1.${user?.id ?? 'guest'}.${incomingRecipeId || 'new'}`;
 
   useEffect(() => {
-    if (!editableRecipe) {
-      if (!incomingRecipeId) {
-        setTitle('');
-        setCuisine('');
-        setCookTime('');
-        setServings('');
-        setDescription('');
-        setImageUrl('');
-        setIngredientsInput('');
-        setStepsInput('');
-        setErrorMessage(null);
+    Animated.timing(draftPulse, {
+      toValue: draftState === 'idle' ? 0 : 1,
+      duration: 220,
+      useNativeDriver: true,
+    }).start();
+  }, [draftPulse, draftState]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function hydrateDraft() {
+      setIsDraftReady(false);
+
+      const baseState = editableRecipe
+        ? {
+            title: editableRecipe.title,
+            cuisine: editableRecipe.cuisine,
+            cookTime: `${editableRecipe.cookTime}`,
+            servings: `${editableRecipe.servings}`,
+            description: editableRecipe.description,
+            imageUrl: editableRecipe.image,
+            ingredientsInput: editableRecipe.ingredients.join('\n'),
+            stepsInput: editableRecipe.steps.join('\n'),
+          }
+        : {
+            title: '',
+            cuisine: '',
+            cookTime: '',
+            servings: '',
+            description: '',
+            imageUrl: '',
+            ingredientsInput: '',
+            stepsInput: '',
+          };
+
+      setTitle(baseState.title);
+      setCuisine(baseState.cuisine);
+      setCookTime(baseState.cookTime);
+      setServings(baseState.servings);
+      setDescription(baseState.description);
+      setImageUrl(baseState.imageUrl);
+      setIngredientsInput(baseState.ingredientsInput);
+      setStepsInput(baseState.stepsInput);
+      setErrorMessage(null);
+      setDraftState('idle');
+
+      try {
+        const storedDraft = await AsyncStorage.getItem(draftStorageKey);
+
+        if (!storedDraft || !isActive) {
+          return;
+        }
+
+        const parsedDraft = JSON.parse(storedDraft) as Partial<Record<string, string>>;
+        setTitle(parsedDraft.title ?? baseState.title);
+        setCuisine(parsedDraft.cuisine ?? baseState.cuisine);
+        setCookTime(parsedDraft.cookTime ?? baseState.cookTime);
+        setServings(parsedDraft.servings ?? baseState.servings);
+        setDescription(parsedDraft.description ?? baseState.description);
+        setImageUrl(parsedDraft.imageUrl ?? baseState.imageUrl);
+        setIngredientsInput(parsedDraft.ingredientsInput ?? baseState.ingredientsInput);
+        setStepsInput(parsedDraft.stepsInput ?? baseState.stepsInput);
+        setDraftState('restored');
+      } catch (error) {
+        console.warn('Failed to load recipe draft', error);
+      } finally {
+        if (isActive) {
+          setIsDraftReady(true);
+        }
       }
+    }
+
+    void hydrateDraft();
+
+    return () => {
+      isActive = false;
+    };
+  }, [draftStorageKey, editableRecipe, incomingRecipeId]);
+
+  useEffect(() => {
+    if (!isDraftReady) {
       return;
     }
 
-    setTitle(editableRecipe.title);
-    setCuisine(editableRecipe.cuisine);
-    setCookTime(`${editableRecipe.cookTime}`);
-    setServings(`${editableRecipe.servings}`);
-    setDescription(editableRecipe.description);
-    setImageUrl(editableRecipe.image);
-    setIngredientsInput(editableRecipe.ingredients.join('\n'));
-    setStepsInput(editableRecipe.steps.join('\n'));
-    setErrorMessage(null);
-  }, [editableRecipe, incomingRecipeId]);
+    const timeout = setTimeout(() => {
+      setDraftState('saving');
+      void AsyncStorage.setItem(
+        draftStorageKey,
+        JSON.stringify({
+          title,
+          cuisine,
+          cookTime,
+          servings,
+          description,
+          imageUrl,
+          ingredientsInput,
+          stepsInput,
+        })
+      )
+        .then(() => {
+          setDraftState('saved');
+        })
+        .catch((error) => {
+          console.warn('Failed to save recipe draft', error);
+          setDraftState('idle');
+        });
+    }, 700);
+
+    return () => clearTimeout(timeout);
+  }, [cookTime, cuisine, description, draftStorageKey, imageUrl, ingredientsInput, isDraftReady, servings, stepsInput, title]);
 
   if (!hasAccess) {
     return null;
@@ -444,6 +584,9 @@ export default function AddRecipeScreen() {
         return;
       }
 
+      await AsyncStorage.removeItem(draftStorageKey);
+      setDraftState('cleared');
+
       router.replace({
         pathname: '/recipe/[id]',
         params: { id: recipe.id },
@@ -456,185 +599,282 @@ export default function AddRecipeScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.appBackground }]}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.contentWrap}>
-          <Pressable style={styles.backButton} onPress={() => router.back()}>
-            <MaterialIcons name="arrow-back-ios-new" size={18} color="#251712" />
-            <Text style={styles.backText}>{screenCopy.back}</Text>
-          </Pressable>
+    <ResponsiveScrollScreen backgroundColor={theme.appBackground} contentStyle={styles.content} contentWrapStyle={styles.contentWrap}>
+      <View style={[styles.backgroundGlowLarge, { backgroundColor: theme.accentSoft }]} />
+      <View style={[styles.backgroundGlowSmall, { backgroundColor: theme.cardBackground }]} />
 
-          <View style={styles.header}>
-            <Text style={[styles.eyebrow, { color: theme.accent }]}>{isEditing ? 'Edit your recipe' : screenCopy.eyebrow}</Text>
-            <Text style={styles.title}>{isEditing ? 'Make your recipe even better.' : screenCopy.title}</Text>
-            <Text style={styles.subtitle}>
-              {isEditing
-                ? 'Update your image, ingredients, and cooking steps without losing the saved recipe you already have.'
-                : screenCopy.subtitle}
-            </Text>
-          </View>
+      <Pressable style={styles.backButton} onPress={() => router.back()}>
+        <MaterialIcons name="arrow-back-ios-new" size={18} color="#251712" />
+        <Text style={styles.backText}>{screenCopy.back}</Text>
+      </Pressable>
 
-          <View style={[styles.card, { borderColor: theme.border }]}>
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>{screenCopy.titleLabel}</Text>
-              <TextInput
-                value={title}
-                onChangeText={setTitle}
-                placeholder={screenCopy.titlePlaceholder}
-                placeholderTextColor="#9C8B82"
-                style={[styles.input, { borderColor: theme.border }]}
-              />
-            </View>
-
-            <View style={[styles.row, isCompact && styles.rowCompact]}>
-              <View style={[styles.fieldGroup, styles.rowField]}>
-                <Text style={styles.label}>{screenCopy.cuisineLabel}</Text>
-                <Text style={styles.fieldHint}>{screenCopy.cuisineHint}</Text>
-                <TextInput
-                  value={cuisine}
-                  onChangeText={setCuisine}
-                  placeholder="Italian"
-                  placeholderTextColor="#9C8B82"
-                  style={[styles.input, { borderColor: theme.border }]}
-                />
-              </View>
-
-              <View style={[styles.fieldGroup, styles.rowField]}>
-                <Text style={styles.label}>{screenCopy.cookTimeLabel}</Text>
-                <Text style={styles.fieldHint}>{screenCopy.cookTimeHint}</Text>
-                <TextInput
-                  value={cookTime}
-                  onChangeText={setCookTime}
-                  placeholder="30 min"
-                  placeholderTextColor="#9C8B82"
-                  autoCapitalize="none"
-                  style={[styles.input, { borderColor: theme.border }]}
-                />
-              </View>
-            </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>{screenCopy.servingsLabel}</Text>
-              <Text style={styles.fieldHint}>{screenCopy.servingsHint}</Text>
-              <TextInput
-                value={servings}
-                onChangeText={setServings}
-                placeholder="4"
-                placeholderTextColor="#9C8B82"
-                keyboardType="number-pad"
-                style={[styles.input, { borderColor: theme.border }]}
-              />
-            </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>{screenCopy.descriptionLabel}</Text>
-              <Text style={styles.fieldHint}>{screenCopy.descriptionHint}</Text>
-              <TextInput
-                value={description}
-                onChangeText={setDescription}
-                placeholder={screenCopy.descriptionPlaceholder}
-                placeholderTextColor="#9C8B82"
-                multiline
-                textAlignVertical="top"
-                style={[styles.textArea, { borderColor: theme.border }]}
-              />
-            </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>{screenCopy.imageLabel}</Text>
-              <Text style={styles.fieldHint}>{screenCopy.imageHint}</Text>
-              <TextInput
-                value={imageUrl}
-                onChangeText={setImageUrl}
-                placeholder={screenCopy.imagePlaceholder}
-                placeholderTextColor="#9C8B82"
-                autoCapitalize="none"
-                style={[styles.input, { borderColor: theme.border }]}
-              />
-            </View>
-
-            {trimmedImageUrl ? (
-              <View style={[styles.previewCard, { backgroundColor: theme.appBackground, borderColor: theme.border }]}>
-                <Text style={styles.previewLabel}>{screenCopy.imagePreview}</Text>
-                {hasCustomPreview ? (
-                  <Image source={trimmedImageUrl} style={styles.previewImage} contentFit="cover" />
-                ) : (
-                  <Text style={styles.previewHint}>{screenCopy.invalidImagePreview}</Text>
-                )}
-              </View>
-            ) : null}
-
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>{screenCopy.ingredientsLabel}</Text>
-              <Text style={styles.fieldHint}>{screenCopy.ingredientsHint}</Text>
-              <TextInput
-                value={ingredientsInput}
-                onChangeText={setIngredientsInput}
-                placeholder={screenCopy.ingredientsPlaceholder}
-                placeholderTextColor="#9C8B82"
-                multiline
-                textAlignVertical="top"
-                style={[styles.listArea, { borderColor: theme.border }]}
-              />
-            </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>{screenCopy.stepsLabel}</Text>
-              <Text style={styles.fieldHint}>{screenCopy.stepsHint}</Text>
-              <TextInput
-                value={stepsInput}
-                onChangeText={setStepsInput}
-                placeholder={screenCopy.stepsPlaceholder}
-                placeholderTextColor="#9C8B82"
-                multiline
-                textAlignVertical="top"
-                style={[styles.listArea, styles.stepsArea, { borderColor: theme.border }]}
-              />
-            </View>
-
-            {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
-
-            <Pressable
-              style={[styles.primaryButton, { backgroundColor: theme.accent }, isSaving && styles.buttonDisabled]}
-              onPress={handleSaveRecipe}
-              disabled={isSaving}>
-              <Text style={styles.primaryButtonText}>
-                {isSaving ? (isEditing ? 'Updating recipe...' : screenCopy.saving) : isEditing ? 'Save changes' : screenCopy.save}
+      <View style={[styles.heroCard, { backgroundColor: theme.heroBackground }]}>
+        <View style={styles.heroTopRow}>
+          <BrandMark size={58} />
+          <View style={styles.heroStatusStack}>
+            <Animated.View
+              style={[
+                styles.draftStatusPill,
+                {
+                  backgroundColor: 'rgba(255,255,255,0.12)',
+                  opacity: draftPulse,
+                  transform: [
+                    {
+                      translateY: draftPulse.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [6, 0],
+                      }),
+                    },
+                  ],
+                },
+              ]}>
+              <MaterialIcons name={draftState === 'saving' ? 'sync' : 'drafts'} size={14} color={theme.heroAccent} />
+              <Text style={[styles.draftStatusText, { color: '#FFF6F0' }]}>
+                {draftState === 'saving'
+                  ? screenCopy.autosaving
+                  : draftState === 'saved'
+                    ? screenCopy.autosaved
+                    : draftState === 'restored'
+                      ? screenCopy.restoredDraft
+                      : draftState === 'cleared'
+                        ? screenCopy.clearedDraft
+                        : screenCopy.autosaveDraft}
               </Text>
-            </Pressable>
-
-            <Text style={styles.helperText}>
-              {isEditing
-                ? 'Editing keeps the same saved recipe in your collection while refreshing the details you changed.'
-                : screenCopy.helper}
-            </Text>
+            </Animated.View>
+            <View style={[styles.readinessPill, { backgroundColor: '#FFF8F2' }]}>
+              <View style={[styles.readinessDot, { backgroundColor: recipeReadinessCount === 5 ? '#2F8F66' : theme.accent }]} />
+              <Text style={[styles.readinessText, { color: recipeReadinessCount === 5 ? '#2F6C54' : '#8F4526' }]}>
+                {recipeReadinessLabel}
+              </Text>
+            </View>
           </View>
         </View>
-      </ScrollView>
-    </SafeAreaView>
+
+        <Text style={[styles.eyebrow, { color: theme.heroAccent }]}>{isEditing ? 'Edit your recipe' : screenCopy.eyebrow}</Text>
+        <Text style={styles.heroTitle}>{isEditing ? 'Make your recipe even better.' : screenCopy.title}</Text>
+        <Text style={styles.heroSubtitle}>
+          {isEditing
+            ? 'Update your image, ingredients, and cooking steps without losing the saved recipe you already have.'
+            : screenCopy.subtitle}
+        </Text>
+
+        <View style={styles.heroMetricsRow}>
+          <View style={[styles.heroMetricCard, { backgroundColor: 'rgba(255,255,255,0.08)' }]}>
+            <Text style={styles.heroMetricValue}>{ingredientLines.length}</Text>
+            <Text style={styles.heroMetricLabel}>Ingredients</Text>
+          </View>
+          <View style={[styles.heroMetricCard, { backgroundColor: 'rgba(255,255,255,0.08)' }]}>
+            <Text style={styles.heroMetricValue}>{stepLines.length}</Text>
+            <Text style={styles.heroMetricLabel}>Steps</Text>
+          </View>
+          <View style={[styles.heroMetricCard, { backgroundColor: 'rgba(255,255,255,0.08)' }]}>
+            <Text style={styles.heroMetricValue}>{servings.trim() || '--'}</Text>
+            <Text style={styles.heroMetricLabel}>Servings</Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={[styles.sectionCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+        <Text style={styles.sectionEyebrow}>Basics</Text>
+        <Text style={styles.sectionTitle}>Name the dish and anchor the details.</Text>
+
+        <View style={styles.fieldGroup}>
+          <Text style={styles.label}>{screenCopy.titleLabel}</Text>
+          <TextInput
+            value={title}
+            onChangeText={setTitle}
+            placeholder={screenCopy.titlePlaceholder}
+            placeholderTextColor="#9C8B82"
+            style={[styles.input, styles.titleInput, { borderColor: theme.border }]}
+          />
+        </View>
+
+        <View style={[styles.row, isCompact && styles.rowCompact]}>
+          <View style={[styles.fieldGroup, styles.rowField]}>
+            <Text style={styles.label}>{screenCopy.cuisineLabel}</Text>
+            <Text style={styles.fieldHint}>{screenCopy.cuisineHint}</Text>
+            <TextInput
+              value={cuisine}
+              onChangeText={setCuisine}
+              placeholder="Italian"
+              placeholderTextColor="#9C8B82"
+              style={[styles.input, { borderColor: theme.border }]}
+            />
+          </View>
+
+          <View style={[styles.fieldGroup, styles.rowField]}>
+            <Text style={styles.label}>{screenCopy.cookTimeLabel}</Text>
+            <Text style={styles.fieldHint}>{screenCopy.cookTimeHint}</Text>
+            <TextInput
+              value={cookTime}
+              onChangeText={setCookTime}
+              placeholder="30 min"
+              placeholderTextColor="#9C8B82"
+              autoCapitalize="none"
+              style={[styles.input, { borderColor: theme.border }]}
+            />
+          </View>
+        </View>
+
+        <View style={styles.fieldGroup}>
+          <Text style={styles.label}>{screenCopy.servingsLabel}</Text>
+          <Text style={styles.fieldHint}>{screenCopy.servingsHint}</Text>
+          <TextInput
+            value={servings}
+            onChangeText={setServings}
+            placeholder="4"
+            placeholderTextColor="#9C8B82"
+            keyboardType="number-pad"
+            style={[styles.input, { borderColor: theme.border }]}
+          />
+        </View>
+
+        <View style={styles.fieldGroup}>
+          <Text style={styles.label}>{screenCopy.descriptionLabel}</Text>
+          <Text style={styles.fieldHint}>{screenCopy.descriptionHint}</Text>
+          <TextInput
+            value={description}
+            onChangeText={setDescription}
+            placeholder={screenCopy.descriptionPlaceholder}
+            placeholderTextColor="#9C8B82"
+            multiline
+            textAlignVertical="top"
+            style={[styles.textArea, { borderColor: theme.border }]}
+          />
+        </View>
+      </View>
+
+      <View style={[styles.sectionCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+        <Text style={styles.sectionEyebrow}>Cover</Text>
+        <Text style={styles.sectionTitle}>Give the recipe a photo if you have one.</Text>
+
+        <View style={styles.fieldGroup}>
+          <Text style={styles.label}>{screenCopy.imageLabel}</Text>
+          <Text style={styles.fieldHint}>{screenCopy.imageHint}</Text>
+          <TextInput
+            value={imageUrl}
+            onChangeText={setImageUrl}
+            placeholder={screenCopy.imagePlaceholder}
+            placeholderTextColor="#9C8B82"
+            autoCapitalize="none"
+            style={[styles.input, { borderColor: theme.border }]}
+          />
+        </View>
+
+        <View style={[styles.previewCard, { backgroundColor: theme.appBackground, borderColor: theme.border }]}>
+          <Text style={styles.previewLabel}>{screenCopy.imagePreview}</Text>
+          {hasCustomPreview ? (
+            <Image source={trimmedImageUrl} style={styles.previewImage} contentFit="cover" />
+          ) : (
+            <View style={styles.previewEmptyState}>
+              <MaterialIcons name="photo-camera-back" size={22} color={theme.accent} />
+              <Text style={styles.previewHint}>{trimmedImageUrl ? screenCopy.invalidImagePreview : 'Your custom cover will show up here.'}</Text>
+            </View>
+          )}
+        </View>
+      </View>
+
+      <View style={[styles.sectionCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+        <View style={styles.sectionHeaderRow}>
+          <View>
+            <Text style={styles.sectionEyebrow}>Ingredients</Text>
+            <Text style={styles.sectionTitle}>List each ingredient on its own line.</Text>
+          </View>
+          <View style={[styles.sectionCountPill, { backgroundColor: theme.accentSoft }]}>
+            <Text style={[styles.sectionCountText, { color: theme.accent }]}>{ingredientLines.length} lines</Text>
+          </View>
+        </View>
+
+        <Text style={styles.fieldHint}>{screenCopy.ingredientsHint}</Text>
+        <TextInput
+          value={ingredientsInput}
+          onChangeText={setIngredientsInput}
+          placeholder={screenCopy.ingredientsPlaceholder}
+          placeholderTextColor="#9C8B82"
+          multiline
+          textAlignVertical="top"
+          style={[styles.listArea, styles.ingredientsArea, { borderColor: theme.border }]}
+        />
+      </View>
+
+      <View style={[styles.sectionCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+        <View style={styles.sectionHeaderRow}>
+          <View>
+            <Text style={styles.sectionEyebrow}>Method</Text>
+            <Text style={styles.sectionTitle}>Write steps a real cook can follow.</Text>
+          </View>
+          <View style={[styles.sectionCountPill, { backgroundColor: theme.accentSoft }]}>
+            <Text style={[styles.sectionCountText, { color: theme.accent }]}>{stepLines.length} steps</Text>
+          </View>
+        </View>
+
+        <Text style={styles.fieldHint}>{screenCopy.stepsHint}</Text>
+        <TextInput
+          value={stepsInput}
+          onChangeText={setStepsInput}
+          placeholder={screenCopy.stepsPlaceholder}
+          placeholderTextColor="#9C8B82"
+          multiline
+          textAlignVertical="top"
+          style={[styles.listArea, styles.stepsArea, { borderColor: theme.border }]}
+        />
+      </View>
+
+      <View style={[styles.saveCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+        <Text style={styles.helperText}>
+          {isEditing
+            ? 'Editing keeps the same saved recipe in your collection while refreshing the details you changed.'
+            : screenCopy.helper}
+        </Text>
+
+        {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+
+        <Pressable
+          style={[styles.primaryButton, { backgroundColor: theme.accent }, isSaving && styles.buttonDisabled]}
+          onPress={handleSaveRecipe}
+          disabled={isSaving}>
+          <Text style={styles.primaryButtonText}>
+            {isSaving ? (isEditing ? 'Updating recipe...' : screenCopy.saving) : isEditing ? 'Save changes' : screenCopy.save}
+          </Text>
+        </Pressable>
+      </View>
+    </ResponsiveScrollScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#FCF5EE',
-  },
   content: {
-    paddingHorizontal: 18,
-    paddingTop: 20,
     paddingBottom: 40,
   },
   contentWrap: {
     width: '100%',
-    maxWidth: 440,
+    maxWidth: 480,
     alignSelf: 'center',
+  },
+  backgroundGlowLarge: {
+    position: 'absolute',
+    top: 22,
+    right: -48,
+    width: 190,
+    height: 190,
+    borderRadius: 95,
+    opacity: 0.52,
+  },
+  backgroundGlowSmall: {
+    position: 'absolute',
+    top: 240,
+    left: -28,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    opacity: 0.8,
   },
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     alignSelf: 'flex-start',
+    marginBottom: 14,
     paddingVertical: 6,
   },
   backText: {
@@ -642,35 +882,107 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
-  header: {
-    marginTop: 16,
-    marginBottom: 20,
+  heroCard: {
+    borderRadius: 34,
+    padding: 20,
+    overflow: 'hidden',
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  heroStatusStack: {
+    flexShrink: 1,
+    alignItems: 'flex-end',
+    gap: 10,
+  },
+  draftStatusPill: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  draftStatusText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  readinessPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  readinessDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  readinessText: {
+    fontSize: 12,
+    fontWeight: '800',
   },
   eyebrow: {
-    color: '#A16244',
+    marginTop: 18,
     fontSize: 12,
     fontWeight: '800',
     textTransform: 'uppercase',
     letterSpacing: 1.1,
   },
-  title: {
+  heroTitle: {
     marginTop: 8,
-    color: '#251712',
-    fontSize: 30,
+    color: '#FFF8F2',
+    fontSize: 31,
+    lineHeight: 35,
     fontWeight: '900',
   },
-  subtitle: {
+  heroSubtitle: {
     marginTop: 8,
-    color: '#6D5D55',
+    color: '#ECDAD2',
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 21,
   },
-  card: {
+  heroMetricsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 18,
+  },
+  heroMetricCard: {
+    flex: 1,
+    borderRadius: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+  },
+  heroMetricValue: {
+    color: '#FFF8F2',
+    fontSize: 22,
+    fontWeight: '900',
+  },
+  heroMetricLabel: {
+    marginTop: 4,
+    color: '#D9C2B6',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+  },
+  sectionCard: {
+    marginTop: 16,
     borderRadius: 30,
-    backgroundColor: '#FFFFFF',
     padding: 20,
     borderWidth: 1,
-    borderColor: '#F0DDD0',
+  },
+  saveCard: {
+    marginTop: 16,
+    borderRadius: 28,
+    padding: 18,
+    borderWidth: 1,
   },
   row: {
     flexDirection: 'row',
@@ -685,6 +997,36 @@ const styles = StyleSheet.create({
   },
   fieldGroup: {
     marginBottom: 16,
+  },
+  sectionEyebrow: {
+    color: '#A16244',
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  sectionTitle: {
+    marginTop: 6,
+    color: '#251712',
+    fontSize: 24,
+    lineHeight: 28,
+    fontWeight: '900',
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 12,
+  },
+  sectionCountPill: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  sectionCountText: {
+    fontSize: 12,
+    fontWeight: '800',
   },
   label: {
     color: '#37241D',
@@ -702,28 +1044,31 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: '#EEDBCF',
-    borderRadius: 18,
+    borderRadius: 20,
     backgroundColor: '#FFF9F5',
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 15,
     color: '#251712',
     fontSize: 15,
+  },
+  titleInput: {
+    fontSize: 18,
+    fontWeight: '800',
   },
   textArea: {
     minHeight: 132,
     borderWidth: 1,
     borderColor: '#EEDBCF',
-    borderRadius: 18,
+    borderRadius: 20,
     backgroundColor: '#FFF9F5',
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
     color: '#251712',
     fontSize: 15,
   },
   previewCard: {
-    marginBottom: 16,
     borderWidth: 1,
-    borderRadius: 22,
+    borderRadius: 26,
     padding: 14,
     overflow: 'hidden',
   },
@@ -739,51 +1084,64 @@ const styles = StyleSheet.create({
     marginTop: 12,
     backgroundColor: '#E9DDD4',
   },
+  previewEmptyState: {
+    marginTop: 12,
+    minHeight: 142,
+    borderRadius: 18,
+    backgroundColor: '#FFF8F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    gap: 8,
+  },
   previewHint: {
-    marginTop: 10,
     color: '#8A7B73',
     fontSize: 13,
     lineHeight: 18,
+    textAlign: 'center',
   },
   listArea: {
     minHeight: 124,
     borderWidth: 1,
     borderColor: '#EEDBCF',
-    borderRadius: 18,
+    borderRadius: 20,
     backgroundColor: '#FFF9F5',
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
     color: '#251712',
     fontSize: 15,
+    lineHeight: 22,
+  },
+  ingredientsArea: {
+    minHeight: 164,
   },
   stepsArea: {
-    minHeight: 176,
+    minHeight: 220,
   },
   primaryButton: {
-    marginTop: 4,
-    borderRadius: 18,
+    marginTop: 2,
+    borderRadius: 20,
     backgroundColor: '#C7512D',
     alignItems: 'center',
-    paddingVertical: 15,
+    paddingVertical: 16,
   },
   primaryButtonText: {
     color: '#FFF8F2',
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
   },
   errorText: {
-    marginTop: 4,
+    marginTop: 2,
     marginBottom: 10,
     color: '#B1382F',
     fontSize: 13,
     fontWeight: '700',
   },
   helperText: {
-    marginTop: 14,
+    marginBottom: 14,
     color: '#8A7B73',
-    fontSize: 12,
-    lineHeight: 18,
-    textAlign: 'center',
+    fontSize: 13,
+    lineHeight: 19,
   },
   buttonDisabled: {
     opacity: 0.75,

@@ -11,7 +11,7 @@ export default function SignInScreen() {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ redirectTo?: string | string[] }>();
-  const { signIn, signInWithProvider, isAccountReady, isConfigured, user } = useAuth();
+  const { signIn, resetPassword, signInWithProvider, isAccountReady, isConfigured, user } = useAuth();
   const isCompact = width < 380 || height < 760;
   const redirectTo = resolveProtectedAuthPath(params.redirectTo);
   const redirectNotice = getProtectedRouteNotice(redirectTo);
@@ -20,6 +20,7 @@ export default function SignInScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
 
   const openAuthCallback = useCallback(() => {
     if (redirectTo) {
@@ -48,6 +49,7 @@ export default function SignInScreen() {
 
   async function handleSignIn() {
     setErrorMessage(null);
+    setInfoMessage(null);
     setIsSubmitting(true);
 
     try {
@@ -62,6 +64,7 @@ export default function SignInScreen() {
 
   async function handleFacebookSignIn() {
     setErrorMessage(null);
+    setInfoMessage(null);
     setIsSubmitting(true);
 
     try {
@@ -76,6 +79,7 @@ export default function SignInScreen() {
 
   async function handleGoogleSignIn() {
     setErrorMessage(null);
+    setInfoMessage(null);
     setIsSubmitting(true);
 
     try {
@@ -83,6 +87,21 @@ export default function SignInScreen() {
       openAuthCallback();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Unable to sign in with Google right now.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleResetPassword() {
+    setErrorMessage(null);
+    setInfoMessage(null);
+    setIsSubmitting(true);
+
+    try {
+      await resetPassword(email);
+      setInfoMessage('Password reset email sent. Open the link in your inbox to choose a new password.');
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to send a password reset email right now.');
     } finally {
       setIsSubmitting(false);
     }
@@ -143,8 +162,8 @@ export default function SignInScreen() {
             <View style={styles.fieldGroup}>
               <View style={styles.passwordHeader}>
                 <Text style={styles.label}>Password</Text>
-                <Pressable>
-                  <Text style={styles.helperAction}>Forgot?</Text>
+                <Pressable onPress={handleResetPassword} disabled={isSubmitting}>
+                  <Text style={[styles.helperAction, isSubmitting && styles.buttonDisabled]}>Forgot password?</Text>
                 </Pressable>
               </View>
               <View style={styles.passwordWrap}>
@@ -167,6 +186,7 @@ export default function SignInScreen() {
             </View>
 
             {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+            {infoMessage ? <Text style={styles.infoText}>{infoMessage}</Text> : null}
 
             <Pressable style={[styles.primaryButton, isSubmitting && styles.buttonDisabled]} onPress={handleSignIn} disabled={isSubmitting}>
               <Text style={styles.primaryButtonText}>{isSubmitting ? 'Signing in...' : 'Continue'}</Text>
@@ -343,6 +363,13 @@ const styles = StyleSheet.create({
     marginTop: 2,
     marginBottom: 8,
     color: '#B1382F',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  infoText: {
+    marginTop: 2,
+    marginBottom: 8,
+    color: '#2F6C54',
     fontSize: 13,
     fontWeight: '600',
   },

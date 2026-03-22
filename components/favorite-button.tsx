@@ -1,5 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { GestureResponderEvent, Pressable, StyleSheet } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Animated, GestureResponderEvent, Pressable, StyleSheet } from 'react-native';
 
 import { useSettings } from '@/components/settings-provider';
 
@@ -12,25 +13,45 @@ type FavoriteButtonProps = {
 export function FavoriteButton({ active, onPress, variant = 'light' }: FavoriteButtonProps) {
   const dark = variant === 'dark';
   const { theme } = useSettings();
+  const scale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.sequence([
+      Animated.spring(scale, {
+        toValue: active ? 1.14 : 0.94,
+        useNativeDriver: true,
+        speed: 18,
+        bounciness: 10,
+      }),
+      Animated.spring(scale, {
+        toValue: 1,
+        useNativeDriver: true,
+        speed: 18,
+        bounciness: 8,
+      }),
+    ]).start();
+  }, [active, scale]);
 
   return (
-    <Pressable
-      onPress={(event: GestureResponderEvent) => {
-        event.stopPropagation();
-        onPress();
-      }}
-      hitSlop={10}
-      style={[
-        styles.button,
-        dark ? styles.buttonDark : styles.buttonLight,
-        active && (dark ? styles.buttonDarkActive : styles.buttonLightActive),
-      ]}>
-      <MaterialIcons
-        name={active ? 'favorite' : 'favorite-border'}
-        size={18}
-        color={active ? theme.accent : dark ? '#FFF8F2' : '#3F2B22'}
-      />
-    </Pressable>
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <Pressable
+        onPress={(event: GestureResponderEvent) => {
+          event.stopPropagation();
+          onPress();
+        }}
+        hitSlop={10}
+        style={[
+          styles.button,
+          dark ? styles.buttonDark : styles.buttonLight,
+          active && (dark ? styles.buttonDarkActive : styles.buttonLightActive),
+        ]}>
+        <MaterialIcons
+          name={active ? 'favorite' : 'favorite-border'}
+          size={18}
+          color={active ? theme.accent : dark ? '#FFF8F2' : '#3F2B22'}
+        />
+      </Pressable>
+    </Animated.View>
   );
 }
 

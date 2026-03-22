@@ -3,7 +3,7 @@ import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, 
 import { AppState } from 'react-native';
 
 import { isSupabaseConfigured, supabase } from '@/utils/supabase';
-import { signInWithOAuthProvider } from '@/utils/oauth';
+import { getRecoveryRedirectUrl, signInWithOAuthProvider } from '@/utils/oauth';
 
 type SignInInput = {
   email: string;
@@ -41,6 +41,7 @@ type AuthContextValue = {
   isConfigured: boolean;
   signIn: (input: SignInInput) => Promise<void>;
   signUp: (input: SignUpInput) => Promise<SignUpResult>;
+  resetPassword: (email: string) => Promise<void>;
   signInWithProvider: (provider: Provider) => Promise<void>;
   signOut: () => Promise<void>;
   refreshAccount: () => Promise<void>;
@@ -296,6 +297,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return {
           needsEmailConfirmation: !data.session,
         };
+      },
+      async resetPassword(email) {
+        if (!isSupabaseConfigured) {
+          throw new Error('Supabase is not configured yet.');
+        }
+
+        const normalizedEmail = email.trim();
+
+        if (!normalizedEmail) {
+          throw new Error('Enter your email first so we know where to send the reset link.');
+        }
+
+        const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+          redirectTo: getRecoveryRedirectUrl(),
+        });
+
+        if (error) {
+          throw new Error(error.message);
+        }
       },
       async signInWithProvider(provider) {
         if (!isSupabaseConfigured) {

@@ -2,7 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Animated, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { useAuth } from '@/components/auth-provider';
 import { MealSlot, useRecipes } from '@/components/recipes-provider';
@@ -101,6 +101,9 @@ export default function MealPlannerScreen() {
   const [pickerSlot, setPickerSlot] = useState<MealSlot | null>(null);
   const [query, setQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<MealPlannerFilterKey>('smart');
+  const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [feedbackVisible, setFeedbackVisible] = useState(false);
+  const feedbackAnimation = useMemo(() => new Animated.Value(0), []);
 
   useEffect(() => {
     if (!plannerDays.some((day) => day.key === selectedDayKey)) {
@@ -121,6 +124,29 @@ export default function MealPlannerScreen() {
     ? recommendMealRecipes(recipes, tasteProfile, pickerSlot, activeFilter, effectiveQuery).slice(0, 8)
     : [];
 
+  useEffect(() => {
+    if (!feedbackVisible) {
+      Animated.timing(feedbackAnimation, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true,
+      }).start();
+      return;
+    }
+
+    Animated.timing(feedbackAnimation, {
+      toValue: 1,
+      duration: 220,
+      useNativeDriver: true,
+    }).start();
+
+    const timeout = setTimeout(() => {
+      setFeedbackVisible(false);
+    }, 1600);
+
+    return () => clearTimeout(timeout);
+  }, [feedbackAnimation, feedbackVisible]);
+
   if (!hasAccess) {
     return null;
   }
@@ -131,9 +157,34 @@ export default function MealPlannerScreen() {
     setActiveFilter('smart');
   }
 
+  function showPlannerFeedback(message: string) {
+    setFeedbackMessage(message);
+    setFeedbackVisible(true);
+  }
+
   return (
     <>
       <ResponsiveScrollScreen backgroundColor={theme.appBackground} contentStyle={styles.content}>
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.feedbackBanner,
+            {
+              backgroundColor: theme.heroBackground,
+              opacity: feedbackAnimation,
+              transform: [
+                {
+                  translateY: feedbackAnimation.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-12, 0],
+                  }),
+                },
+              ],
+            },
+          ]}>
+          <MaterialIcons name="check-circle" size={16} color={theme.heroAccent} />
+          <Text style={styles.feedbackBannerText}>{feedbackMessage}</Text>
+        </Animated.View>
         <Pressable
           style={[styles.backButton, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
           onPress={() => router.back()}>
@@ -262,7 +313,10 @@ export default function MealPlannerScreen() {
                   {recipe ? (
                     <Pressable
                       style={[styles.slotButtonSecondary, { backgroundColor: theme.appBackground, borderColor: theme.border }]}
-                      onPress={() => clearMealPlanSlot(selectedDayKey, slot.key)}>
+                      onPress={() => {
+                        clearMealPlanSlot(selectedDayKey, slot.key);
+                        showPlannerFeedback(`${slot.label} cleared for ${selectedDay.title}.`);
+                      }}>
                       <Text style={[styles.slotButtonSecondaryText, { color: theme.accent }]}>Clear</Text>
                     </Pressable>
                   ) : null}
@@ -366,6 +420,8 @@ export default function MealPlannerScreen() {
                     onPress={() => {
                       if (pickerSlot) {
                         setMealPlanSlot(selectedDayKey, pickerSlot, recipe.id);
+                        const slotLabel = pickerSlotConfig?.label ?? 'Meal';
+                        showPlannerFeedback(`${recipe.title} planned for ${selectedDay.title} ${slotLabel.toLowerCase()}.`);
                       }
                       setPickerSlot(null);
                       setQuery('');
@@ -396,6 +452,21 @@ export default function MealPlannerScreen() {
 const styles = StyleSheet.create({
   content: {
     paddingBottom: 40,
+  },
+  feedbackBanner: {
+    alignSelf: 'flex-start',
+    marginBottom: 14,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  feedbackBannerText: {
+    color: '#FFF8F2',
+    fontSize: 12,
+    fontWeight: '800',
   },
   backButton: {
     flexDirection: 'row',

@@ -243,8 +243,9 @@ export default function SearchScreen() {
   const { user } = useAuth();
   const { recipes, recordSearchQuery, searchRecipes, toggleFavorite } = useRecipes();
   const { settings, theme } = useSettings();
-  const copy = getUiCopy(settings.language);
-  const screenCopy = SEARCH_COPY[settings.language];
+  const effectiveLanguage: AppLanguage = settings.language === 'ko' || settings.language === 'ja' ? 'en' : settings.language;
+  const copy = getUiCopy(effectiveLanguage);
+  const screenCopy = SEARCH_COPY[effectiveLanguage];
   const isSignedIn = Boolean(user);
   const contentWidth = Math.min(width - 40, 460);
   const isCompact = width < 390;
@@ -300,38 +301,10 @@ export default function SearchScreen() {
       return true;
     });
   }, [activeMode, pantryMatches, rankedResults]);
-  const directQueryMatches = useMemo(() => {
-    if (normalizedQuery.length === 0) {
-      return [];
-    }
-
-    return recipes.filter((recipe) => {
-      const searchableText = [
-        recipe.title,
-        recipe.cuisine,
-        recipe.description,
-        ...recipe.categories,
-        ...recipe.tags,
-        ...recipe.ingredients,
-      ]
-        .join(' ')
-        .toLowerCase();
-
-      return normalizedQuery.split(/\s+/).every((token) => searchableText.includes(token));
-    });
-  }, [normalizedQuery, recipes]);
-  const alignedVisibleResults = useMemo(() => {
-    if (!normalizedQuery || activeMode === 'leftovers') {
-      return visibleResults;
-    }
-
-    const directMatchIds = new Set(directQueryMatches.map((recipe) => recipe.id));
-    return visibleResults.filter((result) => directMatchIds.has(result.recipe.id));
-  }, [activeMode, directQueryMatches, normalizedQuery, visibleResults]);
-
-  const featuredResult = alignedVisibleResults[0]?.recipe ?? (!normalizedQuery ? recipes[0] : null);
-  const spotlightCards = alignedVisibleResults.slice(0, 4);
-  const immediateResults = (normalizedQuery ? directQueryMatches : alignedVisibleResults.map((result) => result.recipe)).slice(0, query.trim() ? 4 : 3);
+  const displayResults = visibleResults;
+  const featuredResult = displayResults[0]?.recipe ?? (!normalizedQuery ? recipes[0] : null);
+  const spotlightCards = displayResults.slice(0, 4);
+  const immediateResults = displayResults.map((result) => result.recipe).slice(0, query.trim() ? 4 : 3);
   const searchSuggestions = useMemo(() => {
     if (normalizedQuery.length >= 2) {
       return recipes
@@ -391,7 +364,7 @@ export default function SearchScreen() {
                   {normalizedQuery ? screenCopy.matchingDishes : screenCopy.popularSearches}
                 </Text>
                 <Text style={styles.searchAssistantMeta}>
-                  {normalizedQuery ? `${directQueryMatches.length} found` : screenCopy.tapToAutofill}
+                  {normalizedQuery ? `${displayResults.length} found` : screenCopy.tapToAutofill}
                 </Text>
               </View>
 
@@ -505,7 +478,7 @@ export default function SearchScreen() {
         </View>
         <View style={[styles.quickFilterBadgeRow, isCompact && styles.quickFilterBadgeRowCompact]}>
           <View style={[styles.quickFilterBadge, { backgroundColor: theme.accentSoft }]}>
-            <Text style={[styles.quickFilterBadgeText, { color: theme.accent }]}>{screenCopy.recipesReadyCount(alignedVisibleResults.length)}</Text>
+            <Text style={[styles.quickFilterBadgeText, { color: theme.accent }]}>{screenCopy.recipesReadyCount(displayResults.length)}</Text>
           </View>
           <Text style={styles.quickFilterHint}>{screenCopy.browseByVibeHint}</Text>
         </View>
@@ -669,11 +642,11 @@ export default function SearchScreen() {
         })}
       </View>
 
-      {alignedVisibleResults.length > 4 ? (
+      {displayResults.length > 4 ? (
         <View style={[styles.moreResultsShell, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
           <Text style={styles.moreResultsTitle}>{screenCopy.moreToOpen}</Text>
           <View style={styles.moreResultsList}>
-            {alignedVisibleResults.slice(4, 8).map((result) => (
+            {displayResults.slice(4, 8).map((result) => (
               <Pressable
                 key={result.recipe.id}
                 style={[styles.moreResultRow, { borderColor: theme.border }]}
@@ -696,7 +669,7 @@ export default function SearchScreen() {
         </View>
       ) : null}
 
-      {alignedVisibleResults.length === 0 ? (
+      {displayResults.length === 0 ? (
         <View style={[styles.emptyCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
           <MaterialIcons name="travel-explore" size={26} color={theme.accent} />
           <Text style={styles.emptyTitle}>

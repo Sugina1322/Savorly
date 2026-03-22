@@ -390,9 +390,10 @@ export default function RecipeDetailScreen() {
   const { user } = useAuth();
   const { cookingProgress, deleteRecipe, mealPlans, recipes, setMealPlanSlot, toggleFavorite, trackRecipeView } = useRecipes();
   const { settings, theme } = useSettings();
-  const uiCopy = getUiCopy(settings.language);
-  const screenCopy = RECIPE_DETAIL_COPY[settings.language];
-  const workspaceCopy = RECIPE_WORKSPACE_COPY[settings.language];
+  const effectiveLanguage: AppLanguage = settings.language === 'ko' || settings.language === 'ja' ? 'en' : settings.language;
+  const uiCopy = getUiCopy(effectiveLanguage);
+  const screenCopy = RECIPE_DETAIL_COPY[effectiveLanguage];
+  const workspaceCopy = RECIPE_WORKSPACE_COPY[effectiveLanguage];
   const { id } = useLocalSearchParams<{ id: string }>();
   const isSignedIn = Boolean(user);
   const [activeContentSection, setActiveContentSection] = useState<'ingredients' | 'method'>('method');
@@ -691,7 +692,7 @@ export default function RecipeDetailScreen() {
           <View style={styles.panelSection}>
             <Text style={styles.sectionTitle}>{uiCopy.ingredients}</Text>
             <Text style={styles.sectionCaption}>
-              {getIngredientsSectionNote(settings.language, recipe.servings, recipe.ingredients.length)}
+              {getIngredientsSectionNote(effectiveLanguage, recipe.servings, recipe.ingredients.length)}
             </Text>
             <View style={styles.ingredientsCloud}>
               {recipe.ingredients.map((ingredient) => (
@@ -708,7 +709,7 @@ export default function RecipeDetailScreen() {
           <View style={styles.panelSection}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>{uiCopy.howToMakeIt}</Text>
-              <Text style={styles.sectionCaption}>{getMethodSectionNote(settings.language, recipe.steps.length)}</Text>
+              <Text style={styles.sectionCaption}>{getMethodSectionNote(effectiveLanguage, recipe.steps.length)}</Text>
             </View>
             <View style={[styles.cookModeCard, { backgroundColor: theme.accentSoft, borderColor: theme.border }]}>
               <View style={styles.cookModeCopyBlock}>

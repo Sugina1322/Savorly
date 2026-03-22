@@ -10,6 +10,16 @@ Savorly is an Expo Router app for discovering, saving, and managing recipes.
 - Supabase
 - TypeScript
 
+## Search And Recommendation Logic
+
+Savorly does not currently use a trained machine learning model. The app uses rule-based ranking and personalization logic implemented in [utils/recipe-intelligence.ts](/d:/programming/Savorly/Savorly/utils/recipe-intelligence.ts).
+
+- BM25-style keyword ranking for recipe search
+- Weighted taste-profile scoring based on saves, views, searches, and app preferences
+- Heuristic recommendation pipelines for featured picks, smart suggestions, kitchen pulse, pantry matching, and meal-planner recommendations
+- Diversification logic to avoid repeating the same cuisines, categories, and tags too often
+- Rule-based recipe reliability checks for ingredient measurements, step detail, and ingredient-to-method coverage
+
 ## Getting Started
 
 1. Install dependencies:

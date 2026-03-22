@@ -1,4 +1,4 @@
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BrandMark } from '@/components/brand-mark';
@@ -11,13 +11,8 @@ export function LoadingScreen() {
 
       <View style={styles.content}>
         <BrandMark />
-
-        <Text style={styles.brand}>Savorly</Text>
-        <Text style={styles.tagline}>Save dishes worth craving again.</Text>
-
         <View style={styles.footer}>
           <ActivityIndicator size="small" color="#C7512D" />
-          <Text style={styles.loadingCopy}>Preparing your food board...</Text>
         </View>
       </View>
     </SafeAreaView>
@@ -54,29 +49,8 @@ const styles = StyleSheet.create({
     borderRadius: 80,
     backgroundColor: '#F7E5D8',
   },
-  brand: {
-    marginTop: 26,
-    color: '#22130D',
-    fontSize: 36,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  tagline: {
-    marginTop: 10,
-    color: '#715F56',
-    fontSize: 16,
-    lineHeight: 24,
-    textAlign: 'center',
-    maxWidth: 250,
-  },
   footer: {
-    marginTop: 30,
+    marginTop: 20,
     alignItems: 'center',
-  },
-  loadingCopy: {
-    marginTop: 12,
-    color: '#A34E2D',
-    fontSize: 14,
-    fontWeight: '600',
   },
 });
