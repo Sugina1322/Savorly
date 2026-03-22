@@ -128,7 +128,7 @@ export default function DiscoverScreen() {
   const { user } = useAuth();
   const { featuredPick, kitchenPulse, recipes, savedCount, smartSuggestions, tasteProfile, toggleFavorite } = useRecipes();
   const { settings, theme } = useSettings();
-  const effectiveLanguage: AppLanguage = settings.language === 'ko' || settings.language === 'ja' ? 'en' : settings.language;
+  const effectiveLanguage: AppLanguage = settings.language;
   const copy = getUiCopy(effectiveLanguage);
   const screenCopy = DISCOVER_COPY[effectiveLanguage];
   const isSignedIn = Boolean(user);
@@ -277,29 +277,30 @@ export default function DiscoverScreen() {
         </View>
       </Pressable>
 
-      <View style={[styles.fypPulseCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
-        <View style={styles.fypPulseHeader}>
-          <View>
-            <Text style={styles.fypPulseLabel}>For you right now</Text>
-            <Text style={styles.fypPulseTitle}>{kitchenPulse.category}</Text>
-            <Text style={styles.fypPulseCopy}>{kitchenPulse.reason}</Text>
-          </View>
-          <View style={styles.fypSignalStack}>
-            {topCuisine ? (
+      {settings.smartSuggestions && kitchenPulse ? (
+        <View style={[styles.fypPulseCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+          <View style={styles.fypPulseHeader}>
+            <View>
+              <Text style={styles.fypPulseLabel}>For you right now</Text>
+              <Text style={styles.fypPulseTitle}>{kitchenPulse.category}</Text>
+              <Text style={styles.fypPulseCopy}>{kitchenPulse.reason}</Text>
+            </View>
+            <View style={styles.fypSignalStack}>
+              {topCuisine ? (
+                <View style={[styles.signalChip, { backgroundColor: theme.accentSoft }]}>
+                  <Text style={[styles.signalChipText, { color: theme.accent }]}>Cuisine: {topCuisine}</Text>
+                </View>
+              ) : null}
+              {topTag ? (
+                <View style={[styles.signalChip, { backgroundColor: theme.accentSoft }]}>
+                  <Text style={[styles.signalChipText, { color: theme.accent }]}>Mood: {topTag}</Text>
+                </View>
+              ) : null}
               <View style={[styles.signalChip, { backgroundColor: theme.accentSoft }]}>
-                <Text style={[styles.signalChipText, { color: theme.accent }]}>Cuisine: {topCuisine}</Text>
+                <Text style={[styles.signalChipText, { color: theme.accent }]}>{savedCount} saved</Text>
               </View>
-            ) : null}
-            {topTag ? (
-              <View style={[styles.signalChip, { backgroundColor: theme.accentSoft }]}>
-                <Text style={[styles.signalChipText, { color: theme.accent }]}>Mood: {topTag}</Text>
-              </View>
-            ) : null}
-            <View style={[styles.signalChip, { backgroundColor: theme.accentSoft }]}>
-              <Text style={[styles.signalChipText, { color: theme.accent }]}>{savedCount} saved</Text>
             </View>
           </View>
-        </View>
 
         <View style={styles.filterHeader}>
           <View>
@@ -338,7 +339,8 @@ export default function DiscoverScreen() {
             );
           })}
         </ScrollView>
-      </View>
+        </View>
+      ) : null}
 
       {personalSignals.length > 0 ? (
         <View style={styles.section}>

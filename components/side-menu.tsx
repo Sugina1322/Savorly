@@ -196,13 +196,15 @@ export function SideMenu({ visible, onClose }: SideMenuProps) {
               </View>
             </View>
 
-            <View style={[styles.profilePulseCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
-              <Text style={[styles.profilePulseLabel, { color: theme.accent }]}>Kitchen pulse</Text>
-              <Text style={styles.profilePulseTitle}>{kitchenPulse.category}</Text>
-              <Text style={styles.profilePulseCopy}>
-                {kitchenPulse.reason}
-              </Text>
-            </View>
+            {settings.smartSuggestions && kitchenPulse ? (
+              <View style={[styles.profilePulseCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+                <Text style={[styles.profilePulseLabel, { color: theme.accent }]}>Kitchen pulse</Text>
+                <Text style={styles.profilePulseTitle}>{kitchenPulse.category}</Text>
+                <Text style={styles.profilePulseCopy}>
+                  {kitchenPulse.reason}
+                </Text>
+              </View>
+            ) : null}
 
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Account</Text>

@@ -94,6 +94,12 @@ function normalize(text: string) {
   return text.trim().toLowerCase();
 }
 
+function hasCleanIngredientMeasurement(value: string) {
+  return /(\d|\u00BD|\u00BC|\u00BE|\u2153|\u2155|\bhalf\b|\bquarter\b|\bcup\b|\bcups\b|\btsp\b|\bteaspoon\b|\bteaspoons\b|\btbsp\b|\btablespoon\b|\btablespoons\b|\bgram\b|\bgrams\b|\bg\b|\bkg\b|\bml\b|\bl\b|\bliter\b|\blitre\b|\boz\b|\bounces?\b|\bpound\b|\blb\b|\bclove\b|\bcloves\b|\bcan\b|\bcans\b|\bpacket\b|\bpackets\b|\bslice\b|\bslices\b|\bpiece\b|\bpieces\b|\bpinch\b|\bdash\b|\bhandful\b|\bto taste\b|\bfor serving\b|\bfor garnish\b|\bfor frying\b|\bas needed\b)/i.test(
+    value.trim()
+  );
+}
+
 const MEASURED_INGREDIENT_PATTERN =
   /(\d|½|¼|¾|⅓|⅔|\bhalf\b|\bquarter\b|\bcup\b|\bcups\b|\btsp\b|\bteaspoon\b|\bteaspoons\b|\btbsp\b|\btablespoon\b|\btablespoons\b|\bgram\b|\bgrams\b|\bg\b|\bkg\b|\bml\b|\bl\b|\bliter\b|\blitre\b|\boz\b|\bounces?\b|\bpound\b|\blb\b|\bclove\b|\bcloves\b|\bcan\b|\bcans\b|\bpacket\b|\bpackets\b|\bslice\b|\bslices\b|\bpiece\b|\bpieces\b|\bpinch\b|\bdash\b|\bhandful\b|\bto taste\b|\bfor serving\b|\bfor garnish\b|\bfor frying\b|\bas needed\b)/i;
 const DETAILED_STEP_VERB_PATTERN =
@@ -156,7 +162,7 @@ export function isLikelyRemoteImageUrl(value: string) {
 }
 
 export function hasIngredientMeasurement(value: string) {
-  return MEASURED_INGREDIENT_PATTERN.test(value.trim());
+  return MEASURED_INGREDIENT_PATTERN.test(value.trim()) || hasCleanIngredientMeasurement(value);
 }
 
 export function hasDetailedInstructionStep(value: string) {

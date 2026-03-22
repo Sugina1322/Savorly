@@ -243,7 +243,7 @@ export default function SearchScreen() {
   const { user } = useAuth();
   const { recipes, recordSearchQuery, searchRecipes, toggleFavorite } = useRecipes();
   const { settings, theme } = useSettings();
-  const effectiveLanguage: AppLanguage = settings.language === 'ko' || settings.language === 'ja' ? 'en' : settings.language;
+  const effectiveLanguage: AppLanguage = settings.language;
   const copy = getUiCopy(effectiveLanguage);
   const screenCopy = SEARCH_COPY[effectiveLanguage];
   const isSignedIn = Boolean(user);

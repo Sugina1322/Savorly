@@ -25,7 +25,7 @@ import {
 type RecipesContextValue = {
   recipes: Recipe[];
   featuredPick: FeaturedRecipePick | null;
-  kitchenPulse: KitchenPulse;
+  kitchenPulse: KitchenPulse | null;
   mealPlans: Record<string, Partial<Record<MealSlot, string>>>;
   cookingProgress: Record<string, number>;
   savedCount: number;
@@ -450,6 +450,7 @@ export function RecipesProvider({ children }: PropsWithChildren) {
       saved: savedIds.has(recipe.id),
     }));
     const tasteProfile = buildTasteProfile(mappedRecipes, savedIds, interactions);
+    const recommendationsEnabled = settings.smartSuggestions;
 
     settings.preferredCuisines.forEach((cuisine) => {
       tasteProfile.cuisines[cuisine] = (tasteProfile.cuisines[cuisine] ?? 0) + 8;
@@ -476,13 +477,13 @@ export function RecipesProvider({ children }: PropsWithChildren) {
     return {
       recipes: mappedRecipes,
       featuredPick: pickFeaturedRecipe(mappedRecipes, savedIds, tasteProfile),
-      kitchenPulse: buildKitchenPulse(mappedRecipes, tasteProfile, interactions, mealPlans),
+      kitchenPulse: recommendationsEnabled ? buildKitchenPulse(mappedRecipes, tasteProfile, interactions, mealPlans) : null,
       mealPlans,
       cookingProgress,
       savedCount: mappedRecipes.filter((recipe) => recipe.saved).length,
       searchRecipes: (query: string) => rankRecipes(mappedRecipes, query, tasteProfile),
-      smartSuggestions: buildSmartSuggestions(mappedRecipes, savedIds, tasteProfile),
-      smartCollections: buildSmartCollections(mappedRecipes, savedIds, tasteProfile),
+      smartSuggestions: recommendationsEnabled ? buildSmartSuggestions(mappedRecipes, savedIds, tasteProfile) : [],
+      smartCollections: recommendationsEnabled ? buildSmartCollections(mappedRecipes, savedIds, tasteProfile) : [],
       tasteProfile,
       toggleFavorite,
       clearSavedRecipes,

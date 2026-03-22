@@ -390,7 +390,7 @@ export default function RecipeDetailScreen() {
   const { user } = useAuth();
   const { cookingProgress, deleteRecipe, mealPlans, recipes, setMealPlanSlot, toggleFavorite, trackRecipeView } = useRecipes();
   const { settings, theme } = useSettings();
-  const effectiveLanguage: AppLanguage = settings.language === 'ko' || settings.language === 'ja' ? 'en' : settings.language;
+  const effectiveLanguage: AppLanguage = settings.language;
   const uiCopy = getUiCopy(effectiveLanguage);
   const screenCopy = RECIPE_DETAIL_COPY[effectiveLanguage];
   const workspaceCopy = RECIPE_WORKSPACE_COPY[effectiveLanguage];

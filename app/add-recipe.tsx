@@ -359,7 +359,7 @@ export default function AddRecipeScreen() {
   const params = useLocalSearchParams<{ recipeId?: string }>();
   const { addRecipeFromIdea, recipes, updateRecipeFromIdea } = useRecipes();
   const { settings, theme } = useSettings();
-  const effectiveLanguage: AppLanguage = settings.language === 'ko' || settings.language === 'ja' ? 'en' : settings.language;
+  const effectiveLanguage: AppLanguage = settings.language;
   const screenCopy = ADD_RECIPE_COPY[effectiveLanguage];
   const hasAccess = useProtectedRouteGuard(isAuthLoading, Boolean(user), PROTECTED_AUTH_ROUTES.addRecipe);
   const incomingRecipeId =
