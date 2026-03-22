@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { useAuth } from '@/components/auth-provider';
 import { FavoriteButton } from '@/components/favorite-button';
@@ -17,6 +17,7 @@ export default function SavedScreen() {
   const { settings, theme } = useSettings();
   const contentWidth = Math.min(width - 40, 460);
   const cardWidth = (contentWidth - 12) / 2;
+  const collectionCardWidth = Math.min(Math.max(contentWidth * 0.76, 250), 320);
   const isSignedIn = Boolean(user);
   const savedRecipes = recipes.filter((recipe) => recipe.saved);
   const copy = getUiCopy(settings.language);
@@ -56,13 +57,23 @@ export default function SavedScreen() {
 
       {smartCollections.length > 0 ? (
         <View style={styles.collectionsSection}>
-          <Text style={styles.collectionsTitle}>Smart collections</Text>
+          <View style={styles.collectionsHeader}>
+            <Text style={styles.collectionsTitle}>Smart collections</Text>
+            <Text style={styles.collectionsCount}>{smartCollections.length} ready</Text>
+          </View>
           <Text style={styles.collectionsSubtitle}>Auto-grouped from your saved habits and recipe patterns.</Text>
-          <View style={styles.collectionsGrid}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.collectionsRail}>
             {smartCollections.map((collection) => (
               <Pressable
                 key={collection.id}
-                style={[styles.collectionCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
+                style={[
+                  styles.collectionCard,
+                  {
+                    width: collectionCardWidth,
+                    backgroundColor: theme.cardBackground,
+                    borderColor: theme.border,
+                  },
+                ]}
                 onPress={() =>
                   router.push({
                     pathname: '/collection/[id]',
@@ -70,12 +81,14 @@ export default function SavedScreen() {
                   })
                 }>
                 <Text style={[styles.collectionName, { color: theme.accent }]}>{collection.title}</Text>
-                <Text style={styles.collectionCopy}>{collection.subtitle}</Text>
-                <Text style={styles.collectionCount}>{collection.recipeIds.length} recipes</Text>
-                <Text style={[styles.collectionAction, { color: theme.accent }]}>Open collection</Text>
+                <Text style={styles.collectionCopy} numberOfLines={2}>{collection.subtitle}</Text>
+                <View style={styles.collectionFooter}>
+                  <Text style={styles.collectionMeta}>{collection.recipeIds.length} recipes</Text>
+                  <Text style={[styles.collectionAction, { color: theme.accent }]}>Open</Text>
+                </View>
               </Pressable>
             ))}
-          </View>
+          </ScrollView>
         </View>
       ) : null}
 
@@ -136,14 +149,34 @@ const styles = StyleSheet.create({
   profileCopy: { marginTop: 6, color: '#23150F', fontSize: 14, fontWeight: '700' },
   profileHint: { marginTop: 8, color: '#6B5F58', fontSize: 12, lineHeight: 18 },
   collectionsSection: { marginTop: 24 },
+  collectionsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
   collectionsTitle: { color: '#23150F', fontSize: 22, fontWeight: '800' },
+  collectionsCount: {
+    color: '#7B6C63',
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
   collectionsSubtitle: { marginTop: 6, color: '#6B5F58', fontSize: 13, lineHeight: 19 },
-  collectionsGrid: { gap: 10, marginTop: 14 },
+  collectionsRail: { gap: 10, marginTop: 14, paddingRight: 8 },
   collectionCard: { borderRadius: 22, borderWidth: 1, padding: 16 },
   collectionName: { fontSize: 16, fontWeight: '800' },
   collectionCopy: { marginTop: 6, color: '#6B5F58', fontSize: 13, lineHeight: 18 },
-  collectionCount: { marginTop: 10, color: '#23150F', fontSize: 12, fontWeight: '700' },
-  collectionAction: { marginTop: 12, fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.7 },
+  collectionFooter: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  collectionMeta: { color: '#23150F', fontSize: 12, fontWeight: '700' },
+  collectionAction: { fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.7 },
   statsCard: {
     borderRadius: 24,
     padding: 20,
