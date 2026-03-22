@@ -110,18 +110,23 @@ export default function LandingScreen() {
       <View style={[styles.backgroundOrbSmall, { backgroundColor: theme.cardBackground }]} />
 
       <ScrollView contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, 12) + 12 }]} showsVerticalScrollIndicator={false}>
-        <View style={styles.contentWrap}>
-          <View style={styles.topBar}>
-            <View>
-              <Text style={styles.eyebrow}>{user ? `Welcome back, ${firstName}` : 'Welcome to guest mode'}</Text>
-              <Text style={[styles.brand, compact && styles.brandCompact]}>{copy.appName}</Text>
+          <View style={styles.contentWrap}>
+            <View style={styles.topBar}>
+              <Pressable
+                style={[styles.menuIconButton, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
+                onPress={() => setIsMenuOpen(true)}>
+                <MaterialIcons name="menu" size={20} color={theme.accent} />
+              </Pressable>
+              <View style={styles.topBarCopy}>
+                <Text style={styles.eyebrow}>{user ? `Welcome back, ${firstName}` : 'Welcome to guest mode'}</Text>
+                <Text style={[styles.brand, compact && styles.brandCompact]}>{copy.appName}</Text>
+              </View>
+              <Pressable
+                style={[styles.addChip, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
+                onPress={() => openProtectedRoute(isSignedIn, PROTECTED_AUTH_ROUTES.addRecipe)}>
+                <Text style={[styles.addChipText, { color: theme.accent }]}>+ {copy.addRecipe}</Text>
+              </Pressable>
             </View>
-            <Pressable
-              style={[styles.addChip, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
-              onPress={() => openProtectedRoute(isSignedIn, PROTECTED_AUTH_ROUTES.addRecipe)}>
-              <Text style={[styles.addChipText, { color: theme.accent }]}>+ {copy.addRecipe}</Text>
-            </Pressable>
-          </View>
 
           <View style={[styles.heroCard, compact && styles.heroCardCompact]}>
             <Image source={featuredRecipe.image} style={styles.heroImage} contentFit="cover" />
@@ -348,7 +353,8 @@ const styles = StyleSheet.create({
   },
   content: { paddingHorizontal: 18, paddingBottom: 40 },
   contentWrap: { width: '100%', maxWidth: 460, alignSelf: 'center' },
-  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
+  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
+  topBarCopy: { flex: 1, minWidth: 0 },
   eyebrow: {
     color: '#A16244',
     fontSize: 12,
@@ -358,6 +364,16 @@ const styles = StyleSheet.create({
   },
   brand: { marginTop: 4, color: '#251712', fontSize: 28, fontWeight: '900' },
   brandCompact: { fontSize: 26 },
+  menuIconButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 44,
+    height: 44,
+    borderRadius: 999,
+    backgroundColor: '#FFF8F2',
+    borderWidth: 1,
+    borderColor: '#F0DDD0',
+  },
   addChip: {
     borderRadius: 999,
     backgroundColor: '#FFF8F2',

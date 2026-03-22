@@ -14,7 +14,7 @@ const FAQS = [
   },
   {
     title: 'Can I add my own recipes?',
-    copy: 'Yes. Start from Add recipe, and Savorly will draft tags, ingredients, and steps from your idea.',
+    copy: 'Yes. Start from Add recipe and enter your own measured ingredients, detailed steps, servings, and even a custom image URL.',
   },
   {
     title: 'Where do meal plans live?',

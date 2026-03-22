@@ -58,6 +58,7 @@ type AddRecipeIdea = {
   cookTime: string;
   servings?: string;
   description: string;
+  image?: string;
   ingredients?: string[];
   steps?: string[];
 };
@@ -70,6 +71,33 @@ function normalize(text: string) {
   return text.trim().toLowerCase();
 }
 
+const MEASURED_INGREDIENT_PATTERN =
+  /(\d|½|¼|¾|⅓|⅔|\bhalf\b|\bquarter\b|\bcup\b|\bcups\b|\btsp\b|\bteaspoon\b|\bteaspoons\b|\btbsp\b|\btablespoon\b|\btablespoons\b|\bgram\b|\bgrams\b|\bg\b|\bkg\b|\bml\b|\bl\b|\bliter\b|\blitre\b|\boz\b|\bounces?\b|\bpound\b|\blb\b|\bclove\b|\bcloves\b|\bcan\b|\bcans\b|\bpacket\b|\bpackets\b|\bslice\b|\bslices\b|\bpiece\b|\bpieces\b|\bpinch\b|\bdash\b|\bhandful\b|\bto taste\b|\bfor serving\b|\bfor garnish\b|\bfor frying\b|\bas needed\b)/i;
+const DETAILED_STEP_VERB_PATTERN =
+  /\b(add|bake|beat|blend|boil|brown|cook|drain|fold|fry|grill|heat|marinate|mix|pour|rest|roast|saute|season|serve|simmer|slice|stir|toast|whisk)\b/i;
+const DETAILED_STEP_CONTEXT_PATTERN =
+  /\b(until|for|minutes?|minute|seconds?|second|golden|soft|smooth|combined|fragrant|through|warm|cool|chilled|covered|tender|crisp)\b/i;
+
+export function isLikelyRemoteImageUrl(value: string) {
+  const trimmed = value.trim();
+  return /^https?:\/\/.+/i.test(trimmed);
+}
+
+export function hasIngredientMeasurement(value: string) {
+  return MEASURED_INGREDIENT_PATTERN.test(value.trim());
+}
+
+export function hasDetailedInstructionStep(value: string) {
+  const trimmed = value.trim();
+  const words = trimmed.split(/\s+/).filter(Boolean);
+
+  return (
+    words.length >= 6 &&
+    DETAILED_STEP_VERB_PATTERN.test(trimmed) &&
+    (DETAILED_STEP_CONTEXT_PATTERN.test(trimmed) || words.length >= 10 || /,/.test(trimmed))
+  );
+}
+
 function tokenize(text: string) {
   return normalize(text)
     .split(/[^a-z0-9]+/i)
@@ -79,6 +107,21 @@ function tokenize(text: string) {
 
 function unique<T>(items: T[]) {
   return [...new Set(items)];
+}
+
+function containsAny(text: string, needles: string[]) {
+  return needles.some((needle) => text.includes(needle));
+}
+
+function isLikelyDrinkText(text: string) {
+  if (containsAny(text, ['drink', 'latte', 'smoothie', 'cooler', 'refresher', 'shake', 'sparkler', 'juice', 'milk tea'])) {
+    return true;
+  }
+
+  return (
+    containsAny(text, ['matcha', 'coffee', 'tea']) &&
+    containsAny(text, ['milk', 'iced', 'latte', 'drink', 'cooler', 'shake', 'smoothie', 'refresher'])
+  );
 }
 
 function incrementWeight(map: Record<string, number>, key: string, amount: number) {
@@ -731,23 +774,20 @@ function inferTags(title: string, description: string, cookTime: number) {
   const tags = [];
 
   if (cookTime <= 20) tags.push('Quick');
-  if (
-    base.includes('drink') ||
-    base.includes('latte') ||
-    base.includes('coffee') ||
-    base.includes('matcha') ||
-    base.includes('tea') ||
-    base.includes('smoothie') ||
-    base.includes('cooler') ||
-    base.includes('shake')
-  ) {
+  const baseText = base.join(' ');
+
+  if (isLikelyDrinkText(baseText)) {
     tags.push('Drink');
   }
   if (base.includes('spicy')) tags.push('Spicy');
   if (base.includes('comfort') || base.includes('creamy')) tags.push('Comfort');
   if (base.includes('salad') || base.includes('citrus') || base.includes('fresh')) tags.push('Fresh');
-  if (base.includes('breakfast') || base.includes('toast')) tags.push('Breakfast');
-  if (base.includes('chicken') || base.includes('salmon') || base.includes('shrimp')) tags.push('Protein-packed');
+  if (
+    containsAny(baseText, ['breakfast', 'toast', 'congee', 'lugaw', 'porridge', 'onigiri', 'omelet', 'omelette', 'silog', 'arroz caldo'])
+  ) {
+    tags.push('Breakfast');
+  }
+  if (containsAny(baseText, ['chicken', 'salmon', 'shrimp', 'tuna', 'egg'])) tags.push('Protein-packed');
 
   return unique(tags.length > 0 ? tags : ['Weeknight', cookTime <= 20 ? 'Quick' : 'Comfort']);
 }
@@ -757,67 +797,140 @@ function inferCategories(title: string, cuisine: string, description: string, ta
   const categories = [];
 
   if (text.includes('filipino') || text.includes('sisig') || text.includes('adobo')) categories.push('Filipino favorites');
-  if (cookTime <= 20 || text.includes('easy') || text.includes('quick')) categories.push('Easy recipes');
-  if (text.includes('comfort') || text.includes('weeknight') || text.includes('home')) categories.push('Everyday food');
+  if (
+    cookTime <= 20 ||
+    text.includes('easy') ||
+    text.includes('quick') ||
+    text.includes('fried rice') ||
+    text.includes('omelet') ||
+    text.includes('omelette') ||
+    text.includes('onigiri')
+  ) categories.push('Easy recipes');
+  if (
+    text.includes('comfort') ||
+    text.includes('weeknight') ||
+    text.includes('home') ||
+    text.includes('noodles') ||
+    text.includes('oyakodon') ||
+    text.includes('congee') ||
+    text.includes('caldo')
+  ) categories.push('Everyday food');
   if (text.includes('protein') || text.includes('chicken') || text.includes('beef') || text.includes('salmon')) categories.push('High protein');
   if (text.includes('truffle') || text.includes('shareable') || text.includes('flatbread')) categories.push('Restaurant-like');
-  if (ingredients.length <= 6 || text.includes('pantry') || text.includes('sardines')) categories.push('Pantry-friendly');
-  if (text.includes('breakfast') || text.includes('toast') || text.includes('egg')) categories.push('Breakfast');
+  if (ingredients.length <= 6 || text.includes('pantry') || text.includes('sardines') || text.includes('canned tuna') || text.includes('kimchi')) {
+    categories.push('Pantry-friendly');
+  }
   if (
-    text.includes('drink') ||
-    text.includes('latte') ||
-    text.includes('coffee') ||
-    text.includes('matcha') ||
-    text.includes('tea') ||
-    text.includes('smoothie') ||
-    text.includes('cooler') ||
-    text.includes('shake') ||
-    text.includes('refresher')
-  ) categories.push('Drinks');
+    text.includes('breakfast') ||
+    text.includes('toast') ||
+    text.includes('egg') ||
+    text.includes('congee') ||
+    text.includes('lugaw') ||
+    text.includes('porridge') ||
+    text.includes('onigiri') ||
+    text.includes('omelet') ||
+    text.includes('omelette') ||
+    text.includes('silog') ||
+    text.includes('arroz caldo')
+  ) categories.push('Breakfast');
+  if (isLikelyDrinkText(text)) categories.push('Drinks');
 
   return unique(categories.length > 0 ? categories : ['Everyday food']);
 }
 
 function inferIngredients(title: string, cuisine: string, description: string) {
   const text = normalize(`${title} ${cuisine} ${description}`);
-  const ingredients = ['Olive oil', 'Salt', 'Black pepper'];
+  const ingredients = ['1 tablespoon olive oil', '1/2 teaspoon salt, plus more to taste', '1/4 teaspoon black pepper'];
 
-  if (text.includes('pasta')) ingredients.push('Pasta', 'Garlic', 'Parmesan');
-  if (text.includes('chicken')) ingredients.push('Chicken breast');
-  if (text.includes('salmon')) ingredients.push('Salmon fillet');
-  if (text.includes('shrimp')) ingredients.push('Shrimp');
-  if (text.includes('taco')) ingredients.push('Tortillas', 'Lime');
-  if (text.includes('salad')) ingredients.push('Mixed greens', 'Lemon');
-  if (text.includes('rice') || text.includes('bowl')) ingredients.push('Cooked rice');
-  if (text.includes('spicy')) ingredients.push('Chili flakes');
-  if (text.includes('creamy')) ingredients.push('Cream');
-  if (text.includes('toast')) ingredients.push('Sourdough bread');
+  if (text.includes('pasta')) ingredients.push('250g pasta', '3 cloves garlic, minced', '1/2 cup grated parmesan');
+  if (text.includes('chicken')) ingredients.push('450g chicken thigh or breast, sliced');
+  if (text.includes('salmon')) ingredients.push('2 salmon fillets (about 150g each)');
+  if (text.includes('shrimp')) ingredients.push('400g shrimp, peeled and deveined');
+  if (text.includes('taco')) ingredients.push('8 small tortillas', '1 lime, cut into wedges');
+  if (text.includes('salad')) ingredients.push('4 cups mixed greens', '1 lemon');
+  if (text.includes('rice') || text.includes('bowl')) ingredients.push('2 cups cooked rice');
+  if (text.includes('spicy')) ingredients.push('1 teaspoon chili flakes');
+  if (text.includes('creamy')) ingredients.push('3/4 cup cream');
+  if (text.includes('toast')) ingredients.push('4 slices sourdough bread');
 
   return unique(ingredients).slice(0, 8);
 }
 
-function buildSteps(title: string, ingredients: string[]) {
-  const core = ingredients.slice(0, 4).join(', ');
+function buildSteps(title: string, ingredients: string[], cookTime: number, cuisine: string, description: string) {
+  const text = normalize(`${title} ${cuisine} ${description}`);
+  const leadIngredients = ingredients.slice(0, 4).join(', ').toLowerCase();
+
+  if (isLikelyDrinkText(text)) {
+    return [
+      `Measure the ingredients for ${title.toLowerCase()} and chill the serving glass so the drink stays cold longer.`,
+      'Mix or shake the flavor base until the sugar and any powders are fully dissolved with no dry pockets left.',
+      'Fill the glass with ice, pour in the drink base, then top with milk or sparkling ingredients if the recipe uses them.',
+      'Taste once before serving and adjust sweetness, acidity, or dilution so the final drink feels balanced.',
+    ];
+  }
+
+  if (text.includes('toast') || text.includes('breakfast')) {
+    return [
+      `Prepare all toppings for ${title.toLowerCase()} first so you can build the dish while the base is still warm.`,
+      'Toast or cook the bread or breakfast base until the outside is golden and the center is still tender.',
+      'Mix any spreads, sauces, or seasonings in a small bowl so they are smooth and ready to layer.',
+      'Assemble the dish in order, adding the most delicate toppings last so they stay fresh and bright.',
+      'Serve right away and finish with a final pinch of salt, pepper, or sweetness if needed.',
+    ];
+  }
+
+  if (text.includes('pasta')) {
+    return [
+      `Bring a large pot of salted water to a boil and prep ${leadIngredients} while the water heats.`,
+      'Cook the pasta until just al dente, then reserve a little pasta water before draining.',
+      'Cook the aromatics, vegetables, or protein in a wide pan until browned and fragrant, usually 3 to 5 minutes.',
+      'Add the sauce ingredients and simmer briefly until glossy, loosening with a splash of pasta water if needed.',
+      'Toss the pasta through the sauce, taste for seasoning, and finish with cheese or herbs before serving.',
+    ];
+  }
+
+  if (text.includes('taco')) {
+    return [
+      `Prep the fillings for ${title.toLowerCase()} first so the tacos can be assembled while everything is hot.`,
+      'Season and cook the main protein or vegetables until browned and fully cooked through.',
+      'Mix any salsa, slaw, or sauce in a separate bowl and taste for salt, acid, and heat.',
+      'Warm the tortillas in a dry pan until flexible and lightly blistered so they do not crack when folded.',
+      'Assemble the tacos, add the cold toppings last, and serve immediately with extra citrus on the side.',
+    ];
+  }
+
+  if (text.includes('salad')) {
+    return [
+      `Wash, dry, and prep the salad ingredients for ${title.toLowerCase()} so the dressing clings properly later.`,
+      'Cook the main protein, tofu, or grains first, then let them cool slightly so the greens do not wilt too fast.',
+      'Whisk the dressing until fully combined and balanced between salt, acid, and richness.',
+      'Combine the sturdier vegetables and base ingredients first, then add delicate greens or herbs last.',
+      'Toss right before serving and finish with crunchy toppings so the salad stays fresh and textured.',
+    ];
+  }
+
+  if (text.includes('rice') || text.includes('bowl')) {
+    return [
+      `Measure and prep ${leadIngredients} before cooking so the bowl comes together without rushing.`,
+      'Cook the protein or main topping first until deeply browned and cooked through, then set it aside if needed.',
+      'Cook the vegetables, aromatics, and sauce base in the same pan so the flavors build on each other.',
+      'Warm the rice or grain base separately, then spoon it into bowls before adding the hot toppings.',
+      'Finish with fresh garnish, a final seasoning check, and any crunchy toppings right before serving.',
+    ];
+  }
+
   return [
-    `Prep the main ingredients for ${title.toLowerCase()}, starting with ${core.toLowerCase()}.`,
-    'Cook the main components until fragrant, caramelized, and properly seasoned.',
-    'Bring everything together with a quick finishing sauce or final seasoning pass.',
-    'Plate, taste, and finish with any bright or crunchy toppings before serving.',
+    `Gather and measure the ingredients for ${title.toLowerCase()}, especially ${leadIngredients}, before turning on the heat.`,
+    `Cook the main ingredients in batches if needed so they brown properly instead of steaming during the ${cookTime}-minute cook.`,
+    'Add the aromatics and sauce components once the base is nearly cooked, then stir until the flavors smell rich and combined.',
+    'Lower the heat if anything starts catching, and cook just until the center is done and the sauce or seasoning coats evenly.',
+    'Taste before serving and adjust salt, acid, heat, or texture so the finished dish feels balanced and complete.',
   ];
 }
 
 function getSmartImage(title: string, cuisine: string) {
   const text = normalize(`${title} ${cuisine}`);
-  if (
-    text.includes('drink') ||
-    text.includes('latte') ||
-    text.includes('coffee') ||
-    text.includes('matcha') ||
-    text.includes('tea') ||
-    text.includes('smoothie') ||
-    text.includes('cooler') ||
-    text.includes('shake')
-  ) return 'https://images.unsplash.com/photo-1517701604599-bb29b565090c?auto=format&fit=crop&w=1200&q=80';
+  if (isLikelyDrinkText(text)) return 'https://images.unsplash.com/photo-1517701604599-bb29b565090c?auto=format&fit=crop&w=1200&q=80';
   if (text.includes('salad')) return 'https://images.unsplash.com/photo-1546793665-c74683f339c1?auto=format&fit=crop&w=1200&q=80';
   if (text.includes('taco')) return 'https://images.unsplash.com/photo-1552332386-f8dd00dc2f85?auto=format&fit=crop&w=1200&q=80';
   if (text.includes('pasta')) return 'https://images.unsplash.com/photo-1516100882582-96c3a05fe590?auto=format&fit=crop&w=1200&q=80';
@@ -829,6 +942,7 @@ export function buildRecipeDraft({
   cookTime,
   cuisine,
   description,
+  image,
   ingredients: customIngredients,
   servings,
   steps: customSteps,
@@ -849,13 +963,14 @@ export function buildRecipeDraft({
   const steps =
     customSteps && customSteps.length > 0
       ? customSteps.map((step) => step.trim()).filter(Boolean)
-      : buildSteps(finalTitle, ingredients);
+      : buildSteps(finalTitle, ingredients, finalCookTime, finalCuisine, finalDescription);
+  const customImage = image?.trim() ?? '';
 
   return {
     id: `${normalize(finalTitle).replace(/[^a-z0-9]+/g, '-')}-${Date.now()}`,
     title: finalTitle,
     description: finalDescription,
-    image: getSmartImage(finalTitle, finalCuisine),
+    image: isLikelyRemoteImageUrl(customImage) ? customImage : getSmartImage(finalTitle, finalCuisine),
     cuisine: finalCuisine,
     cookTime: finalCookTime,
     servings: parsedServings ?? (finalCookTime <= 15 ? 2 : 4),
@@ -866,5 +981,28 @@ export function buildRecipeDraft({
     ingredients,
     steps,
     isUserCreated: true,
+  };
+}
+
+function isLegacyGeneratedSteps(steps: string[]) {
+  const normalizedSteps = steps.map((step) => normalize(step));
+
+  return (
+    normalizedSteps.length === 4 &&
+    normalizedSteps[0].startsWith('prep the main ingredients for ') &&
+    normalizedSteps[1] === 'cook the main components until fragrant, caramelized, and properly seasoned.' &&
+    normalizedSteps[2] === 'bring everything together with a quick finishing sauce or final seasoning pass.' &&
+    normalizedSteps[3] === 'plate, taste, and finish with any bright or crunchy toppings before serving.'
+  );
+}
+
+export function upgradeLegacyUserRecipe(recipe: Recipe): Recipe {
+  if (!recipe.isUserCreated || !isLegacyGeneratedSteps(recipe.steps)) {
+    return recipe;
+  }
+
+  return {
+    ...recipe,
+    steps: buildSteps(recipe.title, recipe.ingredients, recipe.cookTime, recipe.cuisine, recipe.description),
   };
 }

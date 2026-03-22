@@ -1,15 +1,312 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { router } from 'expo-router';
-import { useState } from 'react';
+import { Image } from 'expo-image';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/components/auth-provider';
 import { useRecipes } from '@/components/recipes-provider';
+import type { AppLanguage } from '@/components/settings-provider';
 import { useSettings } from '@/components/settings-provider';
-import { getUiCopy } from '@/utils/app-settings-display';
 import { PROTECTED_AUTH_ROUTES, useProtectedRouteGuard } from '@/utils/auth-gate';
-import { parseCookTimeMinutes, parseServingsCount } from '@/utils/recipe-intelligence';
+import {
+  hasDetailedInstructionStep,
+  hasIngredientMeasurement,
+  isLikelyRemoteImageUrl,
+  parseCookTimeMinutes,
+  parseServingsCount,
+} from '@/utils/recipe-intelligence';
+
+type AddRecipeCopy = {
+  back: string;
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  titleLabel: string;
+  titlePlaceholder: string;
+  cuisineLabel: string;
+  cuisineHint: string;
+  cookTimeLabel: string;
+  cookTimeHint: string;
+  servingsLabel: string;
+  servingsHint: string;
+  descriptionLabel: string;
+  descriptionHint: string;
+  descriptionPlaceholder: string;
+  imageLabel: string;
+  imageHint: string;
+  imagePlaceholder: string;
+  imagePreview: string;
+  invalidImagePreview: string;
+  ingredientsLabel: string;
+  ingredientsHint: string;
+  ingredientsPlaceholder: string;
+  stepsLabel: string;
+  stepsHint: string;
+  stepsPlaceholder: string;
+  save: string;
+  saving: string;
+  helper: string;
+  titleError: string;
+  cookTimeError: string;
+  servingsError: string;
+  ingredientsError: string;
+  measuredIngredientsError: string;
+  stepsError: string;
+  minimumStepsError: string;
+  detailedStepsError: string;
+  invalidImageError: string;
+};
+
+const ADD_RECIPE_COPY: Record<AppLanguage, AddRecipeCopy> = {
+  en: {
+    back: 'Back',
+    eyebrow: 'Your recipe',
+    title: 'Add something worth saving.',
+    subtitle: 'Use exact measurements, clear steps, and an image so this recipe stays useful later.',
+    titleLabel: 'Recipe title',
+    titlePlaceholder: 'Creamy garlic shrimp pasta',
+    cuisineLabel: 'Cuisine',
+    cuisineHint: 'Optional, but helpful for search and browsing.',
+    cookTimeLabel: 'Cook time',
+    cookTimeHint: 'Required. Use minutes or a format like `1 hr 15 min`.',
+    servingsLabel: 'Servings',
+    servingsHint: 'Required. How many people this recipe feeds.',
+    descriptionLabel: 'Description',
+    descriptionHint: 'Optional. Add a short summary if the title needs more context.',
+    descriptionPlaceholder: 'Tell people why this recipe deserves a spot in their kitchen.',
+    imageLabel: 'Recipe image URL',
+    imageHint: 'Optional. Paste an image link if you want your own cover photo.',
+    imagePlaceholder: 'https://images.unsplash.com/...',
+    imagePreview: 'Image preview',
+    invalidImagePreview: 'Paste a full image URL to preview your custom cover.',
+    ingredientsLabel: 'Ingredients with measurements',
+    ingredientsHint: 'Required. Add one measured ingredient per line, like `250g pasta` or `Salt, to taste`.',
+    ingredientsPlaceholder: '250g spaghetti\n300g shrimp, peeled and deveined\n3 cloves garlic, minced',
+    stepsLabel: 'Detailed cooking steps',
+    stepsHint: 'Required. Add one complete step per line with cues, timing, or texture so nobody has to guess.',
+    stepsPlaceholder:
+      'Boil the pasta until just al dente, then reserve 1/2 cup pasta water.\nSaute the shrimp in oil for 2 to 3 minutes per side until pink.\nAdd garlic and cream, simmer briefly, then toss with pasta and parmesan.',
+    save: 'Save recipe',
+    saving: 'Saving recipe...',
+    helper: 'Savorly now keeps your exact image, ingredients, servings, and detailed steps instead of turning them into a vague draft.',
+    titleError: 'Give your recipe a title.',
+    cookTimeError: 'Add an accurate cook time, like `30` or `1 hr 15 min`.',
+    servingsError: 'Add how many servings this recipe makes.',
+    ingredientsError: 'List at least one ingredient so the recipe stays accurate.',
+    measuredIngredientsError: 'Each ingredient should include a measurement or note like `2 cups rice`, `1 clove garlic`, or `salt to taste`.',
+    stepsError: 'Add at least one cooking step so the recipe is usable later.',
+    minimumStepsError: 'Add at least three steps so the method feels complete from start to finish.',
+    detailedStepsError: 'Make each step more specific with action, timing, or texture cues so the cook does not have to guess.',
+    invalidImageError: 'Use a valid image URL starting with `http://` or `https://`, or leave the field blank.',
+  },
+  es: {
+    back: 'Volver',
+    eyebrow: 'Tu receta',
+    title: 'Agrega algo que valga la pena guardar.',
+    subtitle: 'Usa medidas exactas, pasos claros e imagen para que la receta siga siendo util despues.',
+    titleLabel: 'Titulo de la receta',
+    titlePlaceholder: 'Pasta cremosa de ajo con camarones',
+    cuisineLabel: 'Cocina',
+    cuisineHint: 'Opcional, pero util para buscar y explorar.',
+    cookTimeLabel: 'Tiempo de coccion',
+    cookTimeHint: 'Obligatorio. Usa minutos o un formato como `1 hr 15 min`.',
+    servingsLabel: 'Porciones',
+    servingsHint: 'Obligatorio. Cuantas personas alimenta esta receta.',
+    descriptionLabel: 'Descripcion',
+    descriptionHint: 'Opcional. Agrega un resumen corto si el titulo necesita mas contexto.',
+    descriptionPlaceholder: 'Cuenta por que esta receta merece un lugar en la cocina.',
+    imageLabel: 'URL de imagen',
+    imageHint: 'Opcional. Pega un enlace si quieres tu propia foto de portada.',
+    imagePlaceholder: 'https://images.unsplash.com/...',
+    imagePreview: 'Vista previa de imagen',
+    invalidImagePreview: 'Pega una URL completa para ver tu portada personalizada.',
+    ingredientsLabel: 'Ingredientes con medidas',
+    ingredientsHint: 'Obligatorio. Agrega un ingrediente medido por linea.',
+    ingredientsPlaceholder: '250g espagueti\n300g camarones limpios\n3 dientes de ajo picados',
+    stepsLabel: 'Pasos detallados',
+    stepsHint: 'Obligatorio. Agrega un paso completo por linea con tiempo o textura.',
+    stepsPlaceholder:
+      'Hierve la pasta hasta que quede al dente y reserva 1/2 taza del agua.\nSaltea los camarones 2 a 3 minutos por lado hasta que se pongan rosados.\nAgrega ajo y crema, cocina un poco y mezcla con la pasta y el queso.',
+    save: 'Guardar receta',
+    saving: 'Guardando receta...',
+    helper: 'Savorly ahora guarda tu imagen, ingredientes, porciones y pasos exactos en lugar de un borrador vago.',
+    titleError: 'Ponle un titulo a tu receta.',
+    cookTimeError: 'Agrega un tiempo de coccion correcto, como `30` o `1 hr 15 min`.',
+    servingsError: 'Agrega cuantas porciones rinde la receta.',
+    ingredientsError: 'Agrega al menos un ingrediente para mantener la receta precisa.',
+    measuredIngredientsError: 'Cada ingrediente debe incluir una medida o nota como `2 tazas de arroz` o `sal al gusto`.',
+    stepsError: 'Agrega al menos un paso de coccion.',
+    minimumStepsError: 'Agrega al menos tres pasos para que el metodo quede completo.',
+    detailedStepsError: 'Haz cada paso mas especifico con accion, tiempo o textura.',
+    invalidImageError: 'Usa una URL valida que empiece con `http://` o `https://`, o deja el campo vacio.',
+  },
+  fr: {
+    back: 'Retour',
+    eyebrow: 'Votre recette',
+    title: 'Ajoutez une recette qui vaut la peine d etre gardee.',
+    subtitle: 'Utilisez des mesures precises, des etapes claires et une image pour garder la recette utile.',
+    titleLabel: 'Titre de la recette',
+    titlePlaceholder: 'Pates cremoses a l ail et aux crevettes',
+    cuisineLabel: 'Cuisine',
+    cuisineHint: 'Optionnel, mais utile pour la recherche et la navigation.',
+    cookTimeLabel: 'Temps de cuisson',
+    cookTimeHint: 'Obligatoire. Utilisez les minutes ou `1 hr 15 min`.',
+    servingsLabel: 'Portions',
+    servingsHint: 'Obligatoire. Nombre de personnes servies.',
+    descriptionLabel: 'Description',
+    descriptionHint: 'Optionnel. Ajoutez un court resume si le titre ne suffit pas.',
+    descriptionPlaceholder: 'Expliquez pourquoi cette recette merite une place dans la cuisine.',
+    imageLabel: 'URL de l image',
+    imageHint: 'Optionnel. Collez un lien si vous voulez votre propre photo.',
+    imagePlaceholder: 'https://images.unsplash.com/...',
+    imagePreview: 'Apercu de l image',
+    invalidImagePreview: 'Collez une URL complete pour voir votre couverture personnalisee.',
+    ingredientsLabel: 'Ingredients avec mesures',
+    ingredientsHint: 'Obligatoire. Un ingredient mesure par ligne.',
+    ingredientsPlaceholder: '250g de spaghetti\n300g de crevettes decortiquees\n3 gousses d ail hachees',
+    stepsLabel: 'Etapes detaillees',
+    stepsHint: 'Obligatoire. Une etape complete par ligne avec temps ou texture.',
+    stepsPlaceholder:
+      'Faites cuire les pates jusqu a ce qu elles soient al dente et gardez 1/2 tasse d eau de cuisson.\nFaites sauter les crevettes 2 a 3 minutes par face jusqu a ce qu elles deviennent roses.\nAjoutez l ail et la creme, laissez mijoter un peu puis melangez avec les pates et le fromage.',
+    save: 'Enregistrer',
+    saving: 'Enregistrement...',
+    helper: 'Savorly conserve maintenant votre image, vos ingredients, vos portions et vos etapes exactes.',
+    titleError: 'Donnez un titre a votre recette.',
+    cookTimeError: 'Ajoutez un temps de cuisson correct, comme `30` ou `1 hr 15 min`.',
+    servingsError: 'Ajoutez le nombre de portions.',
+    ingredientsError: 'Ajoutez au moins un ingredient.',
+    measuredIngredientsError: 'Chaque ingredient doit contenir une mesure ou une note comme `sel, selon le gout`.',
+    stepsError: 'Ajoutez au moins une etape.',
+    minimumStepsError: 'Ajoutez au moins trois etapes pour un resultat complet.',
+    detailedStepsError: 'Rendez chaque etape plus precise avec action, temps ou texture.',
+    invalidImageError: 'Utilisez une URL valide commencant par `http://` ou `https://`, ou laissez vide.',
+  },
+  fil: {
+    back: 'Bumalik',
+    eyebrow: 'Iyong recipe',
+    title: 'Magdagdag ng recipe na talagang sulit i-save.',
+    subtitle: 'Gumamit ng eksaktong sukat, malinaw na hakbang, at image para kapaki-pakinabang pa rin ito later.',
+    titleLabel: 'Pangalan ng recipe',
+    titlePlaceholder: 'Creamy garlic shrimp pasta',
+    cuisineLabel: 'Cuisine',
+    cuisineHint: 'Opsyonal pero helpful sa search at browse.',
+    cookTimeLabel: 'Oras ng pagluto',
+    cookTimeHint: 'Required. Gumamit ng minutes o format na `1 hr 15 min`.',
+    servingsLabel: 'Servings',
+    servingsHint: 'Required. Ilang tao ang mapapakain ng recipe na ito.',
+    descriptionLabel: 'Description',
+    descriptionHint: 'Opsyonal. Magdagdag ng maikling paliwanag kung kulang ang title.',
+    descriptionPlaceholder: 'Sabihin kung bakit sulit lutuin ulit ang recipe na ito.',
+    imageLabel: 'Recipe image URL',
+    imageHint: 'Opsyonal. I-paste ang image link kung gusto mo ng sariling cover photo.',
+    imagePlaceholder: 'https://images.unsplash.com/...',
+    imagePreview: 'Image preview',
+    invalidImagePreview: 'Mag-paste ng buong image URL para makita ang custom cover.',
+    ingredientsLabel: 'Mga sangkap na may sukat',
+    ingredientsHint: 'Required. Isang sangkap bawat line, dapat may sukat o note.',
+    ingredientsPlaceholder: '250g spaghetti\n300g hipon, binalatan\n3 cloves garlic, minced',
+    stepsLabel: 'Detalyadong cooking steps',
+    stepsHint: 'Required. Isang kumpletong hakbang bawat line na may timing o texture cue.',
+    stepsPlaceholder:
+      'Pakuluan ang pasta hanggang al dente at magtabi ng 1/2 cup pasta water.\nI-saute ang hipon nang 2 hanggang 3 minuto bawat side hanggang mag-pink.\nIdagdag ang bawang at cream, pakuluan sandali, saka ihalo sa pasta at keso.',
+    save: 'I-save ang recipe',
+    saving: 'Sine-save ang recipe...',
+    helper: 'Iniingatan na ngayon ng Savorly ang eksaktong image, sangkap, servings, at detalyadong steps mo.',
+    titleError: 'Lagyan ng title ang recipe mo.',
+    cookTimeError: 'Maglagay ng tamang cook time gaya ng `30` o `1 hr 15 min`.',
+    servingsError: 'Ilagay kung ilang servings ang recipe na ito.',
+    ingredientsError: 'Maglista ng kahit isang ingredient para manatiling accurate ang recipe.',
+    measuredIngredientsError: 'Bawat ingredient dapat may sukat o note gaya ng `2 cups rice` o `salt to taste`.',
+    stepsError: 'Magdagdag ng kahit isang cooking step.',
+    minimumStepsError: 'Magdagdag ng hindi bababa sa tatlong steps para kumpleto ang proseso.',
+    detailedStepsError: 'Gawing mas malinaw ang bawat step gamit ang action, timing, o texture cue.',
+    invalidImageError: 'Gumamit ng valid image URL na nagsisimula sa `http://` o `https://`, o iwan itong blank.',
+  },
+  ko: {
+    back: '뒤로',
+    eyebrow: '내 레시피',
+    title: '나중에도 다시 쓰고 싶은 레시피를 추가하세요.',
+    subtitle: '정확한 계량, 자세한 순서, 이미지까지 넣어 두면 나중에 봐도 헷갈리지 않아요.',
+    titleLabel: '레시피 이름',
+    titlePlaceholder: '크리미 갈릭 새우 파스타',
+    cuisineLabel: '요리 종류',
+    cuisineHint: '선택 사항이지만 검색과 탐색에 도움이 돼요.',
+    cookTimeLabel: '조리 시간',
+    cookTimeHint: '필수예요. 분 단위나 `1 hr 15 min` 같은 형식으로 적어 주세요.',
+    servingsLabel: '인분',
+    servingsHint: '필수예요. 몇 명이 먹는지 적어 주세요.',
+    descriptionLabel: '설명',
+    descriptionHint: '선택 사항이에요. 제목만으로 부족하면 짧게 설명해 주세요.',
+    descriptionPlaceholder: '이 레시피가 왜 좋은지 짧게 설명해 주세요.',
+    imageLabel: '레시피 이미지 URL',
+    imageHint: '선택 사항이에요. 직접 고른 커버 이미지를 쓰고 싶다면 링크를 붙여 넣어 주세요.',
+    imagePlaceholder: 'https://images.unsplash.com/...',
+    imagePreview: '이미지 미리보기',
+    invalidImagePreview: '커스텀 커버를 보려면 전체 이미지 URL을 붙여 넣어 주세요.',
+    ingredientsLabel: '계량이 포함된 재료',
+    ingredientsHint: '필수예요. 한 줄에 하나씩, `250g 파스타`처럼 정확하게 적어 주세요.',
+    ingredientsPlaceholder: '250g 스파게티\n300g 손질한 새우\n다진 마늘 3쪽',
+    stepsLabel: '자세한 조리 단계',
+    stepsHint: '필수예요. 한 줄에 한 단계씩, 시간이나 상태가 보이도록 자세히 적어 주세요.',
+    stepsPlaceholder:
+      '파스타를 알단테가 될 때까지 삶고 면수 1/2컵을 남겨 둡니다.\n새우를 기름에 올려 한 면당 2~3분씩 익혀 분홍색이 나도록 굽습니다.\n마늘과 크림을 넣고 잠깐 끓인 뒤 파스타와 치즈를 넣어 고루 버무립니다.',
+    save: '레시피 저장',
+    saving: '레시피 저장 중...',
+    helper: '이제 Savorly는 입력한 이미지, 재료, 인분, 조리 단계를 그대로 저장해 두기 때문에 예전처럼 흐릿한 초안이 되지 않아요.',
+    titleError: '레시피 이름을 입력해 주세요.',
+    cookTimeError: '`30` 또는 `1 hr 15 min`처럼 정확한 조리 시간을 입력해 주세요.',
+    servingsError: '몇 인분인지 입력해 주세요.',
+    ingredientsError: '정확한 레시피를 위해 재료를 한 가지 이상 입력해 주세요.',
+    measuredIngredientsError: '`2 cups rice`, `1 clove garlic`, `salt to taste`처럼 각 재료에 계량이나 메모를 넣어 주세요.',
+    stepsError: '나중에 다시 볼 수 있도록 조리 단계를 한 줄 이상 적어 주세요.',
+    minimumStepsError: '처음부터 끝까지 이해되도록 최소 3단계 이상 적어 주세요.',
+    detailedStepsError: '요리하는 사람이 추측하지 않도록 행동, 시간, 상태가 보이게 더 구체적으로 적어 주세요.',
+    invalidImageError: '`http://` 또는 `https://`로 시작하는 올바른 이미지 URL을 입력하거나 비워 두세요.',
+  },
+  ja: {
+    back: '戻る',
+    eyebrow: 'あなたのレシピ',
+    title: 'あとで見返しても迷わないレシピを追加しましょう。',
+    subtitle: '正確な分量、詳しい手順、画像まで入れておくと、後からでも使いやすいです。',
+    titleLabel: 'レシピ名',
+    titlePlaceholder: 'ガーリックシュリンプクリームパスタ',
+    cuisineLabel: '料理ジャンル',
+    cuisineHint: '任意ですが、検索や閲覧に役立ちます。',
+    cookTimeLabel: '調理時間',
+    cookTimeHint: '必須です。分単位、または `1 hr 15 min` のように入力してください。',
+    servingsLabel: '人数',
+    servingsHint: '必須です。何人分かを入力してください。',
+    descriptionLabel: '説明',
+    descriptionHint: '任意です。タイトルだけでは足りないときに短く補足してください。',
+    descriptionPlaceholder: 'このレシピの良さをひとこと添えてください。',
+    imageLabel: 'レシピ画像 URL',
+    imageHint: '任意です。自分で選んだカバー画像を使いたい場合はリンクを貼ってください。',
+    imagePlaceholder: 'https://images.unsplash.com/...',
+    imagePreview: '画像プレビュー',
+    invalidImagePreview: 'カスタム画像を表示するには完全な画像 URL を貼り付けてください。',
+    ingredientsLabel: '分量つきの材料',
+    ingredientsHint: '必須です。`250g パスタ` のように、1行に1材料ずつ正確に入力してください。',
+    ingredientsPlaceholder: '250g スパゲッティ\n300g 下処理したえび\nにんにく 3片 みじん切り',
+    stepsLabel: '詳しい作り方',
+    stepsHint: '必須です。1行に1工程ずつ、時間や状態が分かるように詳しく書いてください。',
+    stepsPlaceholder:
+      'パスタをアルデンテになるまでゆで、ゆで汁を1/2カップ取っておきます。\nえびを油で片面2〜3分ずつ焼き、きれいなピンク色になるまで火を通します。\nにんにくとクリームを加えて軽く煮てから、パスタとチーズを加えて全体を合わせます。',
+    save: 'レシピを保存',
+    saving: '保存中...',
+    helper: 'Savorly は入力した画像、材料、人数、手順をそのまま保存するので、あいまいな下書きになりません。',
+    titleError: 'レシピ名を入力してください。',
+    cookTimeError: '`30` や `1 hr 15 min` のように正しい調理時間を入力してください。',
+    servingsError: '何人分かを入力してください。',
+    ingredientsError: '正確なレシピにするため、材料を1つ以上入力してください。',
+    measuredIngredientsError: '`2 cups rice`、`1 clove garlic`、`salt to taste` のように、各材料に分量や注記を入れてください。',
+    stepsError: 'あとで使えるように、作り方を1行以上入力してください。',
+    minimumStepsError: '最初から最後まで分かるように、少なくとも3工程は入力してください。',
+    detailedStepsError: '作る人が迷わないように、動作・時間・状態が分かる内容にしてください。',
+    invalidImageError: '`http://` または `https://` で始まる有効な画像 URL を入力するか、空欄のままにしてください。',
+  },
+};
 
 function parseListInput(value: string) {
   return value
@@ -22,19 +319,54 @@ export default function AddRecipeScreen() {
   const { width } = useWindowDimensions();
   const isCompact = width < 420;
   const { isLoading: isAuthLoading, user } = useAuth();
-  const { addRecipeFromIdea } = useRecipes();
+  const params = useLocalSearchParams<{ recipeId?: string }>();
+  const { addRecipeFromIdea, recipes, updateRecipeFromIdea } = useRecipes();
   const { settings, theme } = useSettings();
-  const copy = getUiCopy(settings.language);
+  const screenCopy = ADD_RECIPE_COPY[settings.language];
   const hasAccess = useProtectedRouteGuard(isAuthLoading, Boolean(user), PROTECTED_AUTH_ROUTES.addRecipe);
+  const incomingRecipeId =
+    typeof params.recipeId === 'string' ? params.recipeId : Array.isArray(params.recipeId) ? params.recipeId[0] ?? '' : '';
+  const editableRecipe = recipes.find((recipe) => recipe.id === incomingRecipeId && recipe.isUserCreated);
+  const isEditing = Boolean(editableRecipe);
   const [title, setTitle] = useState('');
   const [cuisine, setCuisine] = useState('');
   const [cookTime, setCookTime] = useState('');
   const [servings, setServings] = useState('');
   const [description, setDescription] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
   const [ingredientsInput, setIngredientsInput] = useState('');
   const [stepsInput, setStepsInput] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const trimmedImageUrl = imageUrl.trim();
+  const hasCustomPreview = trimmedImageUrl.length > 0 && isLikelyRemoteImageUrl(trimmedImageUrl);
+
+  useEffect(() => {
+    if (!editableRecipe) {
+      if (!incomingRecipeId) {
+        setTitle('');
+        setCuisine('');
+        setCookTime('');
+        setServings('');
+        setDescription('');
+        setImageUrl('');
+        setIngredientsInput('');
+        setStepsInput('');
+        setErrorMessage(null);
+      }
+      return;
+    }
+
+    setTitle(editableRecipe.title);
+    setCuisine(editableRecipe.cuisine);
+    setCookTime(`${editableRecipe.cookTime}`);
+    setServings(`${editableRecipe.servings}`);
+    setDescription(editableRecipe.description);
+    setImageUrl(editableRecipe.image);
+    setIngredientsInput(editableRecipe.ingredients.join('\n'));
+    setStepsInput(editableRecipe.steps.join('\n'));
+    setErrorMessage(null);
+  }, [editableRecipe, incomingRecipeId]);
 
   if (!hasAccess) {
     return null;
@@ -44,53 +376,80 @@ export default function AddRecipeScreen() {
     setErrorMessage(null);
 
     if (!title.trim()) {
-      setErrorMessage('Give your recipe a title.');
+      setErrorMessage(screenCopy.titleError);
       return;
     }
 
     const parsedCookTime = parseCookTimeMinutes(cookTime);
     if (!parsedCookTime) {
-      setErrorMessage('Add an accurate cook time, like `30` or `1 hr 15 min`.');
+      setErrorMessage(screenCopy.cookTimeError);
       return;
     }
 
     const parsedServings = parseServingsCount(servings);
     if (!parsedServings) {
-      setErrorMessage('Add how many servings this recipe makes.');
+      setErrorMessage(screenCopy.servingsError);
+      return;
+    }
+
+    if (trimmedImageUrl && !isLikelyRemoteImageUrl(trimmedImageUrl)) {
+      setErrorMessage(screenCopy.invalidImageError);
       return;
     }
 
     const ingredients = parseListInput(ingredientsInput);
     if (ingredients.length === 0) {
-      setErrorMessage('List at least one ingredient so the recipe stays accurate.');
+      setErrorMessage(screenCopy.ingredientsError);
+      return;
+    }
+
+    if (ingredients.some((ingredient) => !hasIngredientMeasurement(ingredient))) {
+      setErrorMessage(screenCopy.measuredIngredientsError);
       return;
     }
 
     const steps = parseListInput(stepsInput);
     if (steps.length === 0) {
-      setErrorMessage('Add at least one cooking step so the recipe is usable later.');
+      setErrorMessage(screenCopy.stepsError);
+      return;
+    }
+
+    if (steps.length < 3) {
+      setErrorMessage(screenCopy.minimumStepsError);
+      return;
+    }
+
+    if (steps.some((step) => !hasDetailedInstructionStep(step))) {
+      setErrorMessage(screenCopy.detailedStepsError);
       return;
     }
 
     setIsSaving(true);
 
     try {
-      const recipe = addRecipeFromIdea({
+      const input = {
         title,
         cuisine,
         cookTime,
         servings,
         description,
+        image: trimmedImageUrl,
         ingredients,
         steps,
-      });
+      };
+      const recipe = isEditing && editableRecipe ? updateRecipeFromIdea(editableRecipe.id, input) : addRecipeFromIdea(input);
+
+      if (!recipe) {
+        setErrorMessage('This recipe can no longer be edited.');
+        return;
+      }
 
       router.replace({
         pathname: '/recipe/[id]',
         params: { id: recipe.id },
       });
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Unable to save your recipe right now.');
+      setErrorMessage(error instanceof Error ? error.message : screenCopy.save);
     } finally {
       setIsSaving(false);
     }
@@ -102,25 +461,26 @@ export default function AddRecipeScreen() {
         <View style={styles.contentWrap}>
           <Pressable style={styles.backButton} onPress={() => router.back()}>
             <MaterialIcons name="arrow-back-ios-new" size={18} color="#251712" />
-            <Text style={styles.backText}>Back</Text>
+            <Text style={styles.backText}>{screenCopy.back}</Text>
           </Pressable>
 
           <View style={styles.header}>
-            <Text style={[styles.eyebrow, { color: theme.accent }]}>{copy.yourRecipe}</Text>
-            <Text style={styles.title}>Add something worth saving.</Text>
+            <Text style={[styles.eyebrow, { color: theme.accent }]}>{isEditing ? 'Edit your recipe' : screenCopy.eyebrow}</Text>
+            <Text style={styles.title}>{isEditing ? 'Make your recipe even better.' : screenCopy.title}</Text>
             <Text style={styles.subtitle}>
-              Enter the real cook time, servings, ingredients, and steps so the recipe you save matches what you
-              actually want to cook later.
+              {isEditing
+                ? 'Update your image, ingredients, and cooking steps without losing the saved recipe you already have.'
+                : screenCopy.subtitle}
             </Text>
           </View>
 
           <View style={[styles.card, { borderColor: theme.border }]}>
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Recipe title</Text>
+              <Text style={styles.label}>{screenCopy.titleLabel}</Text>
               <TextInput
                 value={title}
                 onChangeText={setTitle}
-                placeholder="Creamy garlic shrimp pasta"
+                placeholder={screenCopy.titlePlaceholder}
                 placeholderTextColor="#9C8B82"
                 style={[styles.input, { borderColor: theme.border }]}
               />
@@ -128,8 +488,8 @@ export default function AddRecipeScreen() {
 
             <View style={[styles.row, isCompact && styles.rowCompact]}>
               <View style={[styles.fieldGroup, styles.rowField]}>
-                <Text style={styles.label}>Cuisine</Text>
-                <Text style={styles.fieldHint}>Optional. Helpful for search and browsing.</Text>
+                <Text style={styles.label}>{screenCopy.cuisineLabel}</Text>
+                <Text style={styles.fieldHint}>{screenCopy.cuisineHint}</Text>
                 <TextInput
                   value={cuisine}
                   onChangeText={setCuisine}
@@ -140,8 +500,8 @@ export default function AddRecipeScreen() {
               </View>
 
               <View style={[styles.fieldGroup, styles.rowField]}>
-                <Text style={styles.label}>Cook time</Text>
-                <Text style={styles.fieldHint}>Required. Use minutes or `1 hr 15 min`.</Text>
+                <Text style={styles.label}>{screenCopy.cookTimeLabel}</Text>
+                <Text style={styles.fieldHint}>{screenCopy.cookTimeHint}</Text>
                 <TextInput
                   value={cookTime}
                   onChangeText={setCookTime}
@@ -154,8 +514,8 @@ export default function AddRecipeScreen() {
             </View>
 
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Servings</Text>
-              <Text style={styles.fieldHint}>Required. How many people this recipe feeds.</Text>
+              <Text style={styles.label}>{screenCopy.servingsLabel}</Text>
+              <Text style={styles.fieldHint}>{screenCopy.servingsHint}</Text>
               <TextInput
                 value={servings}
                 onChangeText={setServings}
@@ -167,12 +527,12 @@ export default function AddRecipeScreen() {
             </View>
 
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Description</Text>
-              <Text style={styles.fieldHint}>Optional. Add extra context if the title does not say enough.</Text>
+              <Text style={styles.label}>{screenCopy.descriptionLabel}</Text>
+              <Text style={styles.fieldHint}>{screenCopy.descriptionHint}</Text>
               <TextInput
                 value={description}
                 onChangeText={setDescription}
-                placeholder="Tell people why this recipe deserves a spot in their kitchen."
+                placeholder={screenCopy.descriptionPlaceholder}
                 placeholderTextColor="#9C8B82"
                 multiline
                 textAlignVertical="top"
@@ -181,12 +541,36 @@ export default function AddRecipeScreen() {
             </View>
 
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Ingredients needed</Text>
-              <Text style={styles.fieldHint}>Required. Add one ingredient per line.</Text>
+              <Text style={styles.label}>{screenCopy.imageLabel}</Text>
+              <Text style={styles.fieldHint}>{screenCopy.imageHint}</Text>
+              <TextInput
+                value={imageUrl}
+                onChangeText={setImageUrl}
+                placeholder={screenCopy.imagePlaceholder}
+                placeholderTextColor="#9C8B82"
+                autoCapitalize="none"
+                style={[styles.input, { borderColor: theme.border }]}
+              />
+            </View>
+
+            {trimmedImageUrl ? (
+              <View style={[styles.previewCard, { backgroundColor: theme.appBackground, borderColor: theme.border }]}>
+                <Text style={styles.previewLabel}>{screenCopy.imagePreview}</Text>
+                {hasCustomPreview ? (
+                  <Image source={trimmedImageUrl} style={styles.previewImage} contentFit="cover" />
+                ) : (
+                  <Text style={styles.previewHint}>{screenCopy.invalidImagePreview}</Text>
+                )}
+              </View>
+            ) : null}
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>{screenCopy.ingredientsLabel}</Text>
+              <Text style={styles.fieldHint}>{screenCopy.ingredientsHint}</Text>
               <TextInput
                 value={ingredientsInput}
                 onChangeText={setIngredientsInput}
-                placeholder={`2 chicken breasts\n3 cloves garlic\n1 cup rice`}
+                placeholder={screenCopy.ingredientsPlaceholder}
                 placeholderTextColor="#9C8B82"
                 multiline
                 textAlignVertical="top"
@@ -195,12 +579,12 @@ export default function AddRecipeScreen() {
             </View>
 
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Cooking steps</Text>
-              <Text style={styles.fieldHint}>Required. Add one step per line in the order you actually cook them.</Text>
+              <Text style={styles.label}>{screenCopy.stepsLabel}</Text>
+              <Text style={styles.fieldHint}>{screenCopy.stepsHint}</Text>
               <TextInput
                 value={stepsInput}
                 onChangeText={setStepsInput}
-                placeholder={`Season the chicken.\nSear until golden.\nServe with rice and sauce.`}
+                placeholder={screenCopy.stepsPlaceholder}
                 placeholderTextColor="#9C8B82"
                 multiline
                 textAlignVertical="top"
@@ -214,12 +598,15 @@ export default function AddRecipeScreen() {
               style={[styles.primaryButton, { backgroundColor: theme.accent }, isSaving && styles.buttonDisabled]}
               onPress={handleSaveRecipe}
               disabled={isSaving}>
-              <Text style={styles.primaryButtonText}>{isSaving ? 'Saving recipe...' : copy.saveRecipe}</Text>
+              <Text style={styles.primaryButtonText}>
+                {isSaving ? (isEditing ? 'Updating recipe...' : screenCopy.saving) : isEditing ? 'Save changes' : screenCopy.save}
+              </Text>
             </Pressable>
 
             <Text style={styles.helperText}>
-              Savorly keeps the ingredients, steps, cook time, and servings exactly as you enter them so your saved
-              recipe stays accurate later.
+              {isEditing
+                ? 'Editing keeps the same saved recipe in your collection while refreshing the details you changed.'
+                : screenCopy.helper}
             </Text>
           </View>
         </View>
@@ -240,7 +627,7 @@ const styles = StyleSheet.create({
   },
   contentWrap: {
     width: '100%',
-    maxWidth: 420,
+    maxWidth: 440,
     alignSelf: 'center',
   },
   backButton: {
@@ -333,6 +720,31 @@ const styles = StyleSheet.create({
     color: '#251712',
     fontSize: 15,
   },
+  previewCard: {
+    marginBottom: 16,
+    borderWidth: 1,
+    borderRadius: 22,
+    padding: 14,
+    overflow: 'hidden',
+  },
+  previewLabel: {
+    color: '#37241D',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  previewImage: {
+    width: '100%',
+    height: 180,
+    borderRadius: 16,
+    marginTop: 12,
+    backgroundColor: '#E9DDD4',
+  },
+  previewHint: {
+    marginTop: 10,
+    color: '#8A7B73',
+    fontSize: 13,
+    lineHeight: 18,
+  },
   listArea: {
     minHeight: 124,
     borderWidth: 1,
@@ -345,7 +757,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   stepsArea: {
-    minHeight: 150,
+    minHeight: 176,
   },
   primaryButton: {
     marginTop: 4,

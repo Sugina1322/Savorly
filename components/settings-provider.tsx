@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
 
 export type AppThemeKey = 'terracotta' | 'forest' | 'citrus' | 'berry';
-export type AppLanguage = 'en' | 'es' | 'fr' | 'fil';
+export type AppLanguage = 'en' | 'es' | 'fr' | 'fil' | 'ko' | 'ja';
 export type MeasurementSystem = 'metric' | 'imperial';
 export type SpiceLevel = 'mild' | 'medium' | 'bold';
 export type DietaryFocus = 'balanced' | 'vegetarian' | 'high-protein';

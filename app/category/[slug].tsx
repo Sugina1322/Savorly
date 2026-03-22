@@ -6,15 +6,76 @@ import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-na
 import { FavoriteButton } from '@/components/favorite-button';
 import { useRecipes } from '@/components/recipes-provider';
 import { ResponsiveScrollScreen } from '@/components/responsive-scroll-screen';
-import { useSettings } from '@/components/settings-provider';
+import { type AppLanguage, useSettings } from '@/components/settings-provider';
 import { formatCookTime } from '@/utils/app-settings-display';
 import { getDiscoverCategoryBySlug } from '@/utils/discover-categories';
+
+type CategoryScreenCopy = {
+  back: string;
+  unavailable: string;
+  unavailableCopy: string;
+  backToDiscover: string;
+  recipesInCategory: (count: number) => string;
+  infoCopy: string;
+};
+
+const CATEGORY_COPY: Record<AppLanguage, CategoryScreenCopy> = {
+  en: {
+    back: 'Back',
+    unavailable: 'Category not available',
+    unavailableCopy: 'This category could not be loaded right now. Head back to Discover and try another section.',
+    backToDiscover: 'Back to Discover',
+    recipesInCategory: (count) => `${count} recipes in this category`,
+    infoCopy: 'Open any card to view ingredients and steps, or keep browsing this category as its own focused page.',
+  },
+  es: {
+    back: 'Volver',
+    unavailable: 'Categoria no disponible',
+    unavailableCopy: 'No se pudo cargar esta categoria por ahora. Vuelve a Discover y prueba otra seccion.',
+    backToDiscover: 'Volver a Discover',
+    recipesInCategory: (count) => `${count} recetas en esta categoria`,
+    infoCopy: 'Abre cualquier tarjeta para ver ingredientes y pasos, o sigue explorando esta categoria.',
+  },
+  fr: {
+    back: 'Retour',
+    unavailable: 'Categorie indisponible',
+    unavailableCopy: 'Cette categorie n a pas pu etre chargee pour le moment. Revenez a Discover et essayez une autre section.',
+    backToDiscover: 'Retour a Discover',
+    recipesInCategory: (count) => `${count} recettes dans cette categorie`,
+    infoCopy: 'Ouvrez une carte pour voir les ingredients et les etapes, ou continuez a parcourir cette categorie.',
+  },
+  fil: {
+    back: 'Bumalik',
+    unavailable: 'Hindi available ang category',
+    unavailableCopy: 'Hindi ma-load ang category na ito ngayon. Bumalik sa Discover at subukan ang ibang section.',
+    backToDiscover: 'Bumalik sa Discover',
+    recipesInCategory: (count) => `${count} recipes sa category na ito`,
+    infoCopy: 'Buksan ang card para makita ang ingredients at steps, o ipagpatuloy ang pag-browse sa category na ito.',
+  },
+  ko: {
+    back: '뒤로',
+    unavailable: '카테고리를 불러올 수 없어요',
+    unavailableCopy: '지금은 이 카테고리를 불러올 수 없어요. Discover로 돌아가 다른 섹션을 시도해 보세요.',
+    backToDiscover: 'Discover로 돌아가기',
+    recipesInCategory: (count) => `이 카테고리의 레시피 ${count}개`,
+    infoCopy: '카드를 열어 재료와 단계를 보거나, 이 카테고리를 계속 둘러볼 수 있어요.',
+  },
+  ja: {
+    back: '戻る',
+    unavailable: 'カテゴリを読み込めません',
+    unavailableCopy: 'このカテゴリは今読み込めません。Discover に戻って別のセクションを試してください。',
+    backToDiscover: 'Discover に戻る',
+    recipesInCategory: (count) => `このカテゴリのレシピ ${count} 件`,
+    infoCopy: 'カードを開くと材料と手順を確認できます。このカテゴリをそのまま見続けることもできます。',
+  },
+};
 
 export default function CategoryDetailScreen() {
   const { width } = useWindowDimensions();
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const { recipes, toggleFavorite } = useRecipes();
   const { settings, theme } = useSettings();
+  const copy = CATEGORY_COPY[settings.language];
   const category = typeof slug === 'string' ? getDiscoverCategoryBySlug(slug) : null;
   const contentWidth = Math.min(width - 40, 460);
   const cardWidth = (contentWidth - 12) / 2;
@@ -28,16 +89,14 @@ export default function CategoryDetailScreen() {
           style={[styles.backButton, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
           onPress={() => router.back()}>
           <MaterialIcons name="arrow-back" size={20} color="#251712" />
-          <Text style={styles.backText}>Back</Text>
+          <Text style={styles.backText}>{copy.back}</Text>
         </Pressable>
 
         <View style={[styles.emptyCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
-          <Text style={styles.emptyTitle}>Category not available</Text>
-          <Text style={styles.emptyCopy}>
-            This category could not be loaded right now. Head back to Discover and try another section.
-          </Text>
+          <Text style={styles.emptyTitle}>{copy.unavailable}</Text>
+          <Text style={styles.emptyCopy}>{copy.unavailableCopy}</Text>
           <Pressable style={[styles.emptyButton, { backgroundColor: theme.accent }]} onPress={() => router.replace('/(tabs)/discover')}>
-            <Text style={styles.emptyButtonText}>Back to Discover</Text>
+            <Text style={styles.emptyButtonText}>{copy.backToDiscover}</Text>
           </Pressable>
         </View>
       </ResponsiveScrollScreen>
@@ -50,7 +109,7 @@ export default function CategoryDetailScreen() {
         style={[styles.backButton, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
         onPress={() => router.back()}>
         <MaterialIcons name="arrow-back" size={20} color="#251712" />
-        <Text style={styles.backText}>Back</Text>
+        <Text style={styles.backText}>{copy.back}</Text>
       </Pressable>
 
       <Pressable
@@ -70,10 +129,8 @@ export default function CategoryDetailScreen() {
       </Pressable>
 
       <View style={[styles.infoCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
-        <Text style={styles.infoTitle}>{categoryRecipes.length} recipes in this category</Text>
-        <Text style={styles.infoCopy}>
-          Open any card to view ingredients and steps, or keep browsing this category as its own focused page.
-        </Text>
+        <Text style={styles.infoTitle}>{copy.recipesInCategory(categoryRecipes.length)}</Text>
+        <Text style={styles.infoCopy}>{copy.infoCopy}</Text>
       </View>
 
       <View style={styles.grid}>

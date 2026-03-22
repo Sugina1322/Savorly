@@ -1,3 +1,5 @@
+import { expansionRecipeSeeds } from '@/data/recipe-expansion';
+
 export type Recipe = {
   id: string;
   title: string;
@@ -16,6 +18,21 @@ export type Recipe = {
 };
 
 type RecipeSeed = Omit<Recipe, 'categories' | 'isUserCreated'>;
+
+function containsAny(text: string, needles: string[]) {
+  return needles.some((needle) => text.includes(needle));
+}
+
+function isDrinkCategoryText(text: string) {
+  if (containsAny(text, ['drink', 'latte', 'smoothie', 'cooler', 'refresher', 'shake', 'sparkler', 'juice', 'milk tea'])) {
+    return true;
+  }
+
+  return (
+    containsAny(text, ['matcha', 'coffee', 'tea']) &&
+    containsAny(text, ['milk', 'iced', 'latte', 'drink', 'cooler', 'shake', 'smoothie', 'refresher'])
+  );
+}
 
 function deriveRecipeCategories(recipe: RecipeSeed) {
   const haystack = `${recipe.title} ${recipe.description} ${recipe.cuisine} ${recipe.tags.join(' ')}`
@@ -36,7 +53,11 @@ function deriveRecipeCategories(recipe: RecipeSeed) {
     recipe.cookTime <= 20 ||
     haystack.includes('easy') ||
     haystack.includes('quick') ||
-    haystack.includes('breakfast')
+    haystack.includes('breakfast') ||
+    haystack.includes('fried rice') ||
+    haystack.includes('omelet') ||
+    haystack.includes('omelette') ||
+    haystack.includes('onigiri')
   ) {
     categories.add('Easy recipes');
   }
@@ -48,7 +69,11 @@ function deriveRecipeCategories(recipe: RecipeSeed) {
     haystack.includes('home') ||
     haystack.includes('rice bowl') ||
     haystack.includes('giniling') ||
-    haystack.includes('adobo')
+    haystack.includes('adobo') ||
+    haystack.includes('noodles') ||
+    haystack.includes('oyakodon') ||
+    haystack.includes('congee') ||
+    haystack.includes('caldo')
   ) {
     categories.add('Everyday food');
   }
@@ -74,12 +99,27 @@ function deriveRecipeCategories(recipe: RecipeSeed) {
     haystack.includes('pantry') ||
     haystack.includes('sardines') ||
     haystack.includes('eggplant') ||
-    haystack.includes('tofu')
+    haystack.includes('tofu') ||
+    haystack.includes('canned tuna') ||
+    haystack.includes('kimchi')
   ) {
     categories.add('Pantry-friendly');
   }
 
-  if (haystack.includes('breakfast') || haystack.includes('toast') || haystack.includes('pancake') || haystack.includes('tapa')) {
+  if (
+    haystack.includes('breakfast') ||
+    haystack.includes('toast') ||
+    haystack.includes('pancake') ||
+    haystack.includes('tapa') ||
+    haystack.includes('congee') ||
+    haystack.includes('lugaw') ||
+    haystack.includes('porridge') ||
+    haystack.includes('onigiri') ||
+    haystack.includes('omelet') ||
+    haystack.includes('omelette') ||
+    haystack.includes('silog') ||
+    haystack.includes('arroz caldo')
+  ) {
     categories.add('Breakfast');
   }
 
@@ -93,18 +133,7 @@ function deriveRecipeCategories(recipe: RecipeSeed) {
     categories.add('Dessert');
   }
 
-  if (
-    haystack.includes('drink') ||
-    haystack.includes('latte') ||
-    haystack.includes('coffee') ||
-    haystack.includes('matcha') ||
-    haystack.includes('tea') ||
-    haystack.includes('smoothie') ||
-    haystack.includes('cooler') ||
-    haystack.includes('refresher') ||
-    haystack.includes('shake') ||
-    haystack.includes('sparkler')
-  ) {
+  if (isDrinkCategoryText(haystack)) {
     categories.add('Drinks');
   }
 
@@ -833,6 +862,233 @@ const recipeSeeds: RecipeSeed[] = [
     ],
   },
   {
+    id: 'arroz-caldo',
+    title: 'Arroz Caldo',
+    description: 'Gingery Filipino rice porridge with chicken, garlic chips, and egg for a cheap comforting bowl.',
+    image:
+      'https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=1200&q=80',
+    cuisine: 'Filipino',
+    cookTime: 30,
+    servings: 4,
+    featured: false,
+    saved: false,
+    tags: ['Budget', 'Comfort', 'Breakfast'],
+    ingredients: [
+      '500g chicken thighs, cut into chunks',
+      '1 cup uncooked rice',
+      '6 cups chicken broth or water',
+      '1 thumb ginger, julienned',
+      '4 cloves garlic, minced',
+      '2 tablespoons fish sauce',
+      '2 hard-boiled eggs, halved',
+      '2 scallions, sliced',
+    ],
+    steps: [
+      'Saute half of the garlic with the ginger until fragrant, then add the chicken and cook until lightly opaque on the outside.',
+      'Stir in the rice, pour in the broth, and simmer while stirring from time to time until the grains soften and thicken the pot.',
+      'Season with fish sauce and add a splash of water if the porridge gets too thick before the chicken finishes cooking.',
+      'Top each bowl with egg, scallions, and the remaining garlic toasted in a little oil if you want extra crunch.',
+    ],
+  },
+  {
+    id: 'tuna-mayo-onigiri',
+    title: 'Tuna Mayo Onigiri',
+    description: 'Rice balls packed with tuna mayo and nori for an easy grab-and-go breakfast or lunch.',
+    image:
+      'https://images.unsplash.com/photo-1515003197210-e0cd71810b5f?auto=format&fit=crop&w=1200&q=80',
+    cuisine: 'Japanese-inspired',
+    cookTime: 15,
+    servings: 2,
+    featured: false,
+    saved: false,
+    tags: ['Budget', 'Quick', 'Breakfast'],
+    ingredients: [
+      '2 1/4 cups cooked short-grain rice',
+      '1/2 can tuna, drained',
+      '1 tablespoon mayonnaise',
+      '1/2 teaspoon soy sauce',
+      '1/4 teaspoon salt',
+      '1 sheet nori, cut into strips',
+    ],
+    steps: [
+      'Mix the tuna with mayonnaise and soy sauce until creamy and evenly seasoned.',
+      'Wet your hands lightly, sprinkle them with salt, and flatten a portion of warm rice in your palm.',
+      'Place a spoonful of tuna filling in the center, cover it with more rice, and shape it into a triangle or round ball.',
+      'Wrap each onigiri with a strip of nori just before serving so the seaweed stays crisp.',
+    ],
+  },
+  {
+    id: 'oyakodon',
+    title: 'Oyakodon',
+    description: 'Japanese rice bowl with chicken, onion, and silky eggs simmered in a sweet-savory sauce.',
+    image:
+      'https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=1200&q=80',
+    cuisine: 'Japanese-inspired',
+    cookTime: 20,
+    servings: 2,
+    featured: true,
+    saved: false,
+    tags: ['Budget', 'Comfort', 'High-protein'],
+    ingredients: [
+      '250g boneless chicken thighs, bite-sized',
+      '1/2 onion, thinly sliced',
+      '3 eggs, lightly beaten',
+      '2 cups cooked rice',
+      '1 cup light broth or water',
+      '2 tablespoons soy sauce',
+      '1 tablespoon mirin or sugar',
+      '1 scallion, sliced',
+    ],
+    steps: [
+      'Simmer the onion in the broth with soy sauce and mirin until it starts to soften and sweeten.',
+      'Add the chicken and cook gently until the pieces are tender and no longer pink in the middle.',
+      'Drizzle in the eggs, cover briefly, and let them set softly so the top stays silky instead of dry.',
+      'Spoon everything over hot rice and finish with scallions for an easy one-bowl meal.',
+    ],
+  },
+  {
+    id: 'chinese-tomato-egg-stir-fry',
+    title: 'Chinese Tomato Egg Stir-Fry',
+    description: 'Soft scrambled eggs and juicy tomatoes in a fast Chinese home-style sauce that is cheap and satisfying.',
+    image:
+      'https://images.unsplash.com/photo-1482049016688-2d3e1b311543?auto=format&fit=crop&w=1200&q=80',
+    cuisine: 'Chinese-inspired',
+    cookTime: 10,
+    servings: 2,
+    featured: false,
+    saved: false,
+    tags: ['Budget', 'Quick', 'Vegetarian'],
+    ingredients: [
+      '4 eggs',
+      '3 tomatoes, cut into wedges',
+      '1 scallion, chopped',
+      '1/2 teaspoon salt',
+      '1/4 teaspoon white or black pepper',
+      '1 teaspoon sugar',
+      '2 tablespoons oil',
+      '2 tablespoons water',
+    ],
+    steps: [
+      'Beat the eggs with half the salt and pepper, then scramble them in hot oil until softly set before taking them out of the pan.',
+      'Cook the tomatoes with scallion, sugar, the remaining salt, and a splash of water until they collapse into a light sauce.',
+      'Return the eggs to the pan and fold gently so they stay tender while picking up the tomato juices.',
+      'Serve immediately with rice while the eggs are still soft and the tomatoes are saucy.',
+    ],
+  },
+  {
+    id: 'kimchi-fried-rice',
+    title: 'Kimchi Fried Rice',
+    description: 'Leftover rice fried with kimchi, gochujang, and a sunny egg for a spicy Korean comfort meal.',
+    image:
+      'https://images.unsplash.com/photo-1515003197210-e0cd71810b5f?auto=format&fit=crop&w=1200&q=80',
+    cuisine: 'Korean-inspired',
+    cookTime: 15,
+    servings: 2,
+    featured: true,
+    saved: false,
+    tags: ['Budget', 'Quick', 'Comfort'],
+    ingredients: [
+      '2 cups cold cooked rice',
+      '1 cup kimchi, chopped',
+      '2 tablespoons kimchi juice or water',
+      '1 tablespoon gochujang',
+      '1 teaspoon sesame oil',
+      '1 teaspoon oil',
+      '1 scallion, sliced',
+      '2 fried eggs, for topping',
+    ],
+    steps: [
+      'Stir-fry the kimchi in oil for about a minute so it loses some raw sharpness and starts to caramelize.',
+      'Add the rice, kimchi juice, and gochujang, then break up any clumps until the grains are evenly coated and hot.',
+      'Finish with sesame oil and scallions, tasting once to see if the kimchi already provides enough salt.',
+      'Top each portion with a fried egg and serve while the rice is still steaming.',
+    ],
+  },
+  {
+    id: 'kai-jeow-rice',
+    title: 'Kai Jeow Rice',
+    description: 'Thai-style crispy omelet over hot rice with fish sauce and a little sriracha on the side.',
+    image:
+      'https://images.unsplash.com/photo-1482049016688-2d3e1b311543?auto=format&fit=crop&w=1200&q=80',
+    cuisine: 'Thai-inspired',
+    cookTime: 10,
+    servings: 2,
+    featured: false,
+    saved: false,
+    tags: ['Budget', 'Quick', 'Breakfast'],
+    ingredients: [
+      '4 eggs',
+      '1 tablespoon fish sauce',
+      '1/4 teaspoon ground pepper',
+      '2 teaspoons water',
+      '3 tablespoons oil',
+      '2 cups cooked jasmine rice',
+      'Sriracha or chili sauce, for serving',
+    ],
+    steps: [
+      'Beat the eggs very well with fish sauce, pepper, and water until the mixture looks loose and lightly frothy.',
+      'Heat the oil until quite hot, then pour in the eggs and let them puff up and crisp around the edges.',
+      'Flip once and cook the second side just until golden and fully set in the center.',
+      'Slide the omelet over hot rice and serve with a little chili sauce on the side.',
+    ],
+  },
+  {
+    id: 'poor-mans-thai-noodles',
+    title: 'Poor Man\'s Thai Noodles',
+    description: 'Wide rice noodles tossed with bean sprouts, scallions, and a sweet soy sauce that tastes bigger than it costs.',
+    image:
+      'https://images.unsplash.com/photo-1516100882582-96c3a05fe590?auto=format&fit=crop&w=1200&q=80',
+    cuisine: 'Thai-inspired',
+    cookTime: 18,
+    servings: 3,
+    featured: false,
+    saved: false,
+    tags: ['Budget', 'Quick', 'Pantry'],
+    ingredients: [
+      '250g wide rice noodles',
+      '3 cloves garlic, sliced',
+      '4 scallions, cut into short lengths',
+      '2 cups bean sprouts',
+      '1 1/2 tablespoons soy sauce',
+      '1 tablespoon dark soy sauce',
+      '1 teaspoon fish sauce',
+      '1 tablespoon brown sugar',
+    ],
+    steps: [
+      'Soften or cook the noodles according to the package directions, then drain well so they do not water down the sauce.',
+      'Stir together the soy sauces, fish sauce, and brown sugar until the sugar mostly dissolves.',
+      'Cook the garlic and scallion whites in a little oil, add the noodles, and toss quickly with the sauce until evenly colored.',
+      'Fold in the bean sprouts and scallion greens at the end so they stay crisp and fresh against the rich noodles.',
+    ],
+  },
+  {
+    id: 'scallion-oil-noodles',
+    title: 'Scallion Oil Noodles',
+    description: 'Shanghai-style noodles coated in fragrant scallion oil and soy sauce for a cheap but restaurant-looking bowl.',
+    image:
+      'https://images.unsplash.com/photo-1516100882582-96c3a05fe590?auto=format&fit=crop&w=1200&q=80',
+    cuisine: 'Chinese-inspired',
+    cookTime: 20,
+    servings: 2,
+    featured: false,
+    saved: false,
+    tags: ['Budget', 'Quick', 'Pantry'],
+    ingredients: [
+      '200g thin wheat noodles',
+      '6 scallions, cut into short lengths',
+      '1/4 cup neutral oil',
+      '2 tablespoons light soy sauce',
+      '1 tablespoon dark soy sauce',
+      '2 teaspoons sugar',
+    ],
+    steps: [
+      'Cook the noodles until springy, then rinse briefly and drain while you build the sauce.',
+      'Fry the scallions in the oil over medium heat until they turn deep golden and smell sweet, being careful not to burn them.',
+      'Stir the soy sauces and sugar into the hot scallion oil just until the sugar melts into a glossy dressing.',
+      'Toss the noodles with the sauce and crispy scallions right away so every strand gets coated.',
+    ],
+  },
+  {
     id: 'banana-turon',
     title: 'Banana Turon',
     description: 'Caramelized banana spring rolls with crisp wrappers and a sweet golden finish.',
@@ -992,7 +1248,7 @@ const recipeSeeds: RecipeSeed[] = [
   },
 ];
 
-export const recipes: Recipe[] = recipeSeeds.map((recipe) => ({
+export const recipes: Recipe[] = [...recipeSeeds, ...expansionRecipeSeeds].map((recipe) => ({
   ...recipe,
   categories: deriveRecipeCategories(recipe),
   isUserCreated: false,

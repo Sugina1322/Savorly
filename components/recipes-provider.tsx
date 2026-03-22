@@ -17,6 +17,7 @@ import {
   type SmartCollection,
   type TasteProfile,
   type UserInteractions,
+  upgradeLegacyUserRecipe,
 } from '@/utils/recipe-intelligence';
 
 type RecipesContextValue = {
@@ -24,6 +25,7 @@ type RecipesContextValue = {
   featuredPick: FeaturedRecipePick | null;
   kitchenPulse: KitchenPulse;
   mealPlans: Record<string, Partial<Record<MealSlot, string>>>;
+  cookingProgress: Record<string, number>;
   savedCount: number;
   toggleFavorite: (id: string) => void;
   searchRecipes: (query: string) => SearchResult[];
@@ -35,12 +37,15 @@ type RecipesContextValue = {
     cookTime: string;
     servings?: string;
     description: string;
+    image?: string;
     ingredients?: string[];
     steps?: string[];
   }) => Recipe;
+  updateRecipeFromIdea: (id: string, input: AddRecipeInput) => Recipe | null;
   deleteRecipe: (id: string) => void;
   setMealPlanSlot: (dateKey: string, slot: MealSlot, recipeId: string) => void;
   clearMealPlanSlot: (dateKey: string, slot: MealSlot) => void;
+  setCookingProgress: (recipeId: string, stepIndex: number) => void;
   recordSearchQuery: (query: string) => void;
   trackRecipeView: (id: string) => void;
   tasteProfile: TasteProfile;
@@ -52,6 +57,7 @@ type AddRecipeInput = {
   cookTime: string;
   servings?: string;
   description: string;
+  image?: string;
   ingredients?: string[];
   steps?: string[];
 };
@@ -62,6 +68,7 @@ const RecipesContext = createContext<RecipesContextValue | null>(null);
 const RECIPES_STORAGE_KEY = 'savorly.recipes.v2';
 const RECIPE_SIGNALS_STORAGE_KEY = 'savorly.recipe-signals.v2';
 const MEAL_PLAN_STORAGE_KEY = 'savorly.meal-plan.v1';
+const COOKING_PROGRESS_STORAGE_KEY = 'savorly.cooking-progress.v1';
 const DEFAULT_INTERACTIONS: UserInteractions = {
   searches: [],
   viewsByRecipeId: {},
@@ -105,7 +112,7 @@ function mergeSeedRecipesWithStoredRecipes(storedRecipes: Recipe[]) {
   const customRecipes = storedRecipes
     .filter((recipe) => !SEED_RECIPE_IDS.has(recipe.id))
     .map((recipe) => ({
-      ...recipe,
+      ...upgradeLegacyUserRecipe(recipe),
       isUserCreated: true,
     }));
 
@@ -118,6 +125,7 @@ export function RecipesProvider({ children }: PropsWithChildren) {
   const [savedIds, setSavedIds] = useState(() => new Set(recipeSeed.filter((recipe) => recipe.saved).map((recipe) => recipe.id)));
   const [interactions, setInteractions] = useState<UserInteractions>(DEFAULT_INTERACTIONS);
   const [mealPlans, setMealPlans] = useState<Record<string, Partial<Record<MealSlot, string>>>>({});
+  const [cookingProgress, setCookingProgressState] = useState<Record<string, number>>({});
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
@@ -125,8 +133,9 @@ export function RecipesProvider({ children }: PropsWithChildren) {
       AsyncStorage.getItem(RECIPES_STORAGE_KEY),
       AsyncStorage.getItem(RECIPE_SIGNALS_STORAGE_KEY),
       AsyncStorage.getItem(MEAL_PLAN_STORAGE_KEY),
+      AsyncStorage.getItem(COOKING_PROGRESS_STORAGE_KEY),
     ])
-      .then(([storedRecipes, storedSignals, storedMealPlans]) => {
+      .then(([storedRecipes, storedSignals, storedMealPlans, storedCookingProgress]) => {
         if (storedRecipes) {
           try {
             const parsedRecipes = JSON.parse(storedRecipes) as Recipe[];
@@ -156,6 +165,15 @@ export function RecipesProvider({ children }: PropsWithChildren) {
             setMealPlans(parsedMealPlans ?? {});
           } catch (error) {
             console.warn('Failed to parse stored meal plans', error);
+          }
+        }
+
+        if (storedCookingProgress) {
+          try {
+            const parsedCookingProgress = JSON.parse(storedCookingProgress) as Record<string, number>;
+            setCookingProgressState(parsedCookingProgress ?? {});
+          } catch (error) {
+            console.warn('Failed to parse cooking progress', error);
           }
         }
       })
@@ -197,6 +215,16 @@ export function RecipesProvider({ children }: PropsWithChildren) {
     });
   }, [isHydrated, mealPlans]);
 
+  useEffect(() => {
+    if (!isHydrated) {
+      return;
+    }
+
+    AsyncStorage.setItem(COOKING_PROGRESS_STORAGE_KEY, JSON.stringify(cookingProgress)).catch((error) => {
+      console.warn('Failed to save cooking progress', error);
+    });
+  }, [cookingProgress, isHydrated]);
+
   const toggleFavorite = useCallback((id: string) => {
     setSavedIds((current) => {
       const next = new Set(current);
@@ -218,6 +246,35 @@ export function RecipesProvider({ children }: PropsWithChildren) {
       return next;
     });
     return nextRecipe;
+  }, []);
+
+  const updateRecipeFromIdea = useCallback((id: string, input: AddRecipeInput) => {
+    if (SEED_RECIPE_IDS.has(id)) {
+      return null;
+    }
+
+    const nextRecipe = buildRecipeDraft(input);
+    let updatedRecipe: Recipe | null = null;
+
+    setRecipes((current) =>
+      current.map((recipe) => {
+        if (recipe.id !== id) {
+          return recipe;
+        }
+
+        updatedRecipe = {
+          ...nextRecipe,
+          id: recipe.id,
+          saved: recipe.saved,
+          featured: recipe.featured,
+          isUserCreated: true,
+        };
+
+        return updatedRecipe;
+      })
+    );
+
+    return updatedRecipe;
   }, []);
 
   const deleteRecipe = useCallback((id: string) => {
@@ -267,6 +324,21 @@ export function RecipesProvider({ children }: PropsWithChildren) {
       return {
         ...current,
         [dateKey]: nextDay,
+      };
+    });
+  }, []);
+
+  const setCookingProgress = useCallback((recipeId: string, stepIndex: number) => {
+    setCookingProgressState((current) => {
+      const nextStepIndex = Math.max(0, stepIndex);
+
+      if ((current[recipeId] ?? 0) === nextStepIndex) {
+        return current;
+      }
+
+      return {
+        ...current,
+        [recipeId]: nextStepIndex,
       };
     });
   }, []);
@@ -331,6 +403,7 @@ export function RecipesProvider({ children }: PropsWithChildren) {
       featuredPick: pickFeaturedRecipe(mappedRecipes, savedIds, tasteProfile),
       kitchenPulse: buildKitchenPulse(mappedRecipes, tasteProfile, interactions, mealPlans),
       mealPlans,
+      cookingProgress,
       savedCount: mappedRecipes.filter((recipe) => recipe.saved).length,
       searchRecipes: (query: string) => rankRecipes(mappedRecipes, query, tasteProfile),
       smartSuggestions: buildSmartSuggestions(mappedRecipes, savedIds, tasteProfile),
@@ -338,13 +411,15 @@ export function RecipesProvider({ children }: PropsWithChildren) {
       tasteProfile,
       toggleFavorite,
       addRecipeFromIdea,
+      updateRecipeFromIdea,
       deleteRecipe,
       setMealPlanSlot,
       clearMealPlanSlot,
+      setCookingProgress,
       recordSearchQuery,
       trackRecipeView,
     };
-  }, [addRecipeFromIdea, clearMealPlanSlot, deleteRecipe, interactions, mealPlans, recordSearchQuery, recipes, savedIds, setMealPlanSlot, settings, toggleFavorite, trackRecipeView]);
+  }, [addRecipeFromIdea, clearMealPlanSlot, cookingProgress, deleteRecipe, interactions, mealPlans, recordSearchQuery, recipes, savedIds, setCookingProgress, setMealPlanSlot, settings, toggleFavorite, trackRecipeView, updateRecipeFromIdea]);
 
   return <RecipesContext.Provider value={value}>{children}</RecipesContext.Provider>;
 }

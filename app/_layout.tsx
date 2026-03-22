@@ -61,6 +61,13 @@ export default function RootLayout() {
                   }}
                 />
                 <Stack.Screen
+                  name="recipe/[id]/cook"
+                  options={{
+                    headerShown: false,
+                    presentation: 'card',
+                  }}
+                />
+                <Stack.Screen
                   name="recipe/[id]"
                   options={{
                     headerShown: false,

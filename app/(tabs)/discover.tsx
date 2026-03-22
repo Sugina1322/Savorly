@@ -7,7 +7,7 @@ import { useAuth } from '@/components/auth-provider';
 import { FavoriteButton } from '@/components/favorite-button';
 import { useRecipes } from '@/components/recipes-provider';
 import { ResponsiveScrollScreen } from '@/components/responsive-scroll-screen';
-import { useSettings } from '@/components/settings-provider';
+import { type AppLanguage, useSettings } from '@/components/settings-provider';
 import { formatCookTime, getUiCopy } from '@/utils/app-settings-display';
 import { openProtectedRoute, PROTECTED_AUTH_ROUTES } from '@/utils/auth-gate';
 import {
@@ -21,12 +21,115 @@ function matchesCategory(category: DiscoverFilterKey, recipeCategories: string[]
   return category === 'all' ? true : recipeCategories.includes(category);
 }
 
+type DiscoverScreenCopy = {
+  title: string;
+  subtitle: string;
+  browseByCategory: string;
+  browseByCategoryCopy: string;
+  startHere: string;
+  selectedPicks: string;
+  startHereCopy: string;
+  selectedCopy: string;
+  viewCategory: string;
+  exploreMore: string;
+  openSearch: string;
+  classicBrowseCopy: string;
+};
+
+const DISCOVER_COPY: Record<AppLanguage, DiscoverScreenCopy> = {
+  en: {
+    title: 'Discover by craving, not just by scroll.',
+    subtitle: 'Jump between mains, desserts, breakfast, and drinks so the board feels closer to how people actually browse.',
+    browseByCategory: 'Browse by category',
+    browseByCategoryCopy: 'Switch the board from everyday meals to desserts and drinks without leaving Discover.',
+    startHere: 'Start here',
+    selectedPicks: 'picks',
+    startHereCopy: 'A broad mix of what is worth opening next.',
+    selectedCopy: 'A tighter slice of the board based on the category you picked.',
+    viewCategory: 'View category',
+    exploreMore: 'Explore more',
+    openSearch: 'Open search',
+    classicBrowseCopy: 'A smaller grid if you still want the classic browse-all view.',
+  },
+  es: {
+    title: 'Descubre por antojo, no solo por scroll.',
+    subtitle: 'Salta entre platos fuertes, postres, desayunos y bebidas para navegar como la gente realmente decide.',
+    browseByCategory: 'Explorar por categoria',
+    browseByCategoryCopy: 'Cambia el tablero de comidas diarias a postres y bebidas sin salir de Discover.',
+    startHere: 'Empieza aqui',
+    selectedPicks: 'selecciones',
+    startHereCopy: 'Una mezcla amplia de lo que vale la pena abrir ahora.',
+    selectedCopy: 'Una parte mas enfocada segun la categoria que elegiste.',
+    viewCategory: 'Ver categoria',
+    exploreMore: 'Explorar mas',
+    openSearch: 'Abrir busqueda',
+    classicBrowseCopy: 'Una cuadricula mas pequena si aun quieres la vista clasica.',
+  },
+  fr: {
+    title: 'Decouvrez selon l envie, pas seulement en faisant defiler.',
+    subtitle: 'Passez des plats aux desserts, petits-dejeuners et boissons pour parcourir comme on choisit vraiment quoi manger.',
+    browseByCategory: 'Parcourir par categorie',
+    browseByCategoryCopy: 'Faites passer le tableau des plats du quotidien aux desserts et boissons sans quitter Discover.',
+    startHere: 'Commencez ici',
+    selectedPicks: 'selections',
+    startHereCopy: 'Un melange large de ce qui vaut la peine d etre ouvert ensuite.',
+    selectedCopy: 'Une selection plus serree selon la categorie choisie.',
+    viewCategory: 'Voir la categorie',
+    exploreMore: 'Explorer plus',
+    openSearch: 'Ouvrir la recherche',
+    classicBrowseCopy: 'Une grille plus petite si vous voulez encore la vue classique.',
+  },
+  fil: {
+    title: 'Mag-discover ayon sa craving, hindi puro scroll.',
+    subtitle: 'Lumipat sa pagitan ng mains, desserts, breakfast, at drinks para mas natural ang pag-browse.',
+    browseByCategory: 'Browse by category',
+    browseByCategoryCopy: 'Ilipat ang board mula everyday meals papuntang desserts at drinks nang hindi umaalis sa Discover.',
+    startHere: 'Simulan dito',
+    selectedPicks: 'picks',
+    startHereCopy: 'Isang malawak na halo ng mga sulit buksan.',
+    selectedCopy: 'Mas siksik na board base sa category na pinili mo.',
+    viewCategory: 'Tingnan ang category',
+    exploreMore: 'Mag-explore pa',
+    openSearch: 'Buksan ang search',
+    classicBrowseCopy: 'Mas maliit na grid kung gusto mo pa rin ang classic browse-all view.',
+  },
+  ko: {
+    title: '그냥 스크롤하지 말고 먹고 싶은 기분으로 둘러보세요.',
+    subtitle: '메인 요리, 디저트, 아침 메뉴, 음료를 오가며 더 자연스럽게 고를 수 있어요.',
+    browseByCategory: '카테고리로 보기',
+    browseByCategoryCopy: 'Discover를 벗어나지 않고 일상식, 디저트, 음료로 바로 전환하세요.',
+    startHere: '여기서 시작',
+    selectedPicks: '추천',
+    startHereCopy: '지금 열어보기 좋은 레시피를 넓게 모아뒀어요.',
+    selectedCopy: '선택한 카테고리에 맞춰 더 좁혀진 보드예요.',
+    viewCategory: '카테고리 보기',
+    exploreMore: '더 둘러보기',
+    openSearch: '검색 열기',
+    classicBrowseCopy: '클래식한 전체 보기가 필요하면 작은 그리드로 볼 수 있어요.',
+  },
+  ja: {
+    title: 'ただスクロールするのではなく、食べたい気分で探しましょう。',
+    subtitle: '主食、デザート、朝食、ドリンクを行き来しながら、もっと自然に選べます。',
+    browseByCategory: 'カテゴリで見る',
+    browseByCategoryCopy: 'Discoverを離れずに日常ごはん、デザート、ドリンクへ切り替えられます。',
+    startHere: 'まずはこちら',
+    selectedPicks: 'おすすめ',
+    startHereCopy: '次に開く価値のあるレシピを広く集めています。',
+    selectedCopy: '選んだカテゴリに合わせて絞り込んだボードです。',
+    viewCategory: 'カテゴリを見る',
+    exploreMore: 'さらに見る',
+    openSearch: '検索を開く',
+    classicBrowseCopy: '従来の一覧感が欲しい場合は小さめのグリッドでも見られます。',
+  },
+};
+
 export default function DiscoverScreen() {
   const { width } = useWindowDimensions();
   const { user } = useAuth();
   const { featuredPick, recipes, toggleFavorite } = useRecipes();
   const { settings, theme } = useSettings();
   const copy = getUiCopy(settings.language);
+  const screenCopy = DISCOVER_COPY[settings.language];
   const isSignedIn = Boolean(user);
   const featuredRecipe = featuredPick?.recipe ?? recipes[0];
   const featuredReason = featuredPick?.reason ?? 'Picked from today\'s recipe rotation.';
@@ -72,10 +175,8 @@ export default function DiscoverScreen() {
     <ResponsiveScrollScreen backgroundColor={theme.tabBarBackground} bottomInsetBehavior="tab-bar">
       <View style={styles.header}>
         <Text style={[styles.eyebrow, { color: theme.accent }]}>{copy.appName}</Text>
-        <Text style={styles.title}>Discover by craving, not just by scroll.</Text>
-        <Text style={styles.subtitle}>
-          Jump between mains, desserts, breakfast, and drinks so the board feels closer to how people actually browse.
-        </Text>
+        <Text style={styles.title}>{screenCopy.title}</Text>
+        <Text style={styles.subtitle}>{screenCopy.subtitle}</Text>
 
         <View style={styles.headerActions}>
           <Pressable
@@ -109,10 +210,8 @@ export default function DiscoverScreen() {
       <View style={[styles.categoryCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
         <View style={styles.categoryHeader}>
           <View>
-            <Text style={styles.categoryTitle}>Browse by category</Text>
-            <Text style={styles.categoryCopy}>
-              Switch the board from everyday meals to desserts and drinks without leaving Discover.
-            </Text>
+            <Text style={styles.categoryTitle}>{screenCopy.browseByCategory}</Text>
+            <Text style={styles.categoryCopy}>{screenCopy.browseByCategoryCopy}</Text>
           </View>
           <View style={styles.categoryStats}>
             <View style={[styles.statChip, { backgroundColor: theme.accentSoft }]}>
@@ -152,15 +251,15 @@ export default function DiscoverScreen() {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>
             {activeFilter === 'all'
-              ? 'Start here'
-              : `${DISCOVER_FILTERS.find((filter) => filter.key === activeFilter)?.label ?? 'Selected'} picks`}
+              ? screenCopy.startHere
+              : `${DISCOVER_FILTERS.find((filter) => filter.key === activeFilter)?.label ?? 'Selected'} ${screenCopy.selectedPicks}`}
           </Text>
           <Text style={[styles.sectionCaption, { color: theme.accent }]}>{spotlightRecipes.length} recipes</Text>
         </View>
         <Text style={styles.sectionCopy}>
           {activeFilter === 'all'
-            ? 'A broad mix of what is worth opening next.'
-            : 'A tighter slice of the board based on the category you picked.'}
+            ? screenCopy.startHereCopy
+            : screenCopy.selectedCopy}
         </Text>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.railRow}>
@@ -204,7 +303,7 @@ export default function DiscoverScreen() {
             <Pressable
               style={[styles.shelfActionButton, { backgroundColor: theme.accentSoft, borderColor: theme.border }]}
               onPress={() => openCategoryPage(shelf.key)}>
-              <Text style={[styles.shelfActionText, { color: theme.accent }]}>View category</Text>
+              <Text style={[styles.shelfActionText, { color: theme.accent }]}>{screenCopy.viewCategory}</Text>
             </Pressable>
           </View>
 
@@ -230,12 +329,12 @@ export default function DiscoverScreen() {
 
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Explore more</Text>
+          <Text style={styles.sectionTitle}>{screenCopy.exploreMore}</Text>
           <Pressable onPress={() => router.push('/(tabs)/search')}>
-            <Text style={[styles.sectionAction, { color: theme.accent }]}>Open search</Text>
+            <Text style={[styles.sectionAction, { color: theme.accent }]}>{screenCopy.openSearch}</Text>
           </Pressable>
         </View>
-        <Text style={styles.sectionCopy}>A smaller grid if you still want the classic browse-all view.</Text>
+        <Text style={styles.sectionCopy}>{screenCopy.classicBrowseCopy}</Text>
 
         <View style={styles.grid}>
           {filteredRecipes.slice(0, 4).map((recipe) => (

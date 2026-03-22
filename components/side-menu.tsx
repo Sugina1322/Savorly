@@ -10,8 +10,10 @@ import {
   StyleSheet,
   Switch,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/components/auth-provider';
 import { useRecipes } from '@/components/recipes-provider';
@@ -76,11 +78,14 @@ const supportItems: MenuItem[] = [
 ];
 
 export function SideMenu({ visible, onClose }: SideMenuProps) {
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const { isAccountReady, profile, signOut, user } = useAuth();
   const { kitchenPulse, savedCount, smartCollections } = useRecipes();
   const { setPushAlerts, setSmartSuggestions, settings, theme } = useSettings();
-  const translateX = useRef(new Animated.Value(-360)).current;
-  const panelWidth = 360;
+  const panelWidth = Math.min(Math.max(width * 0.86, 292), 360);
+  const isCompact = width < 390;
+  const translateX = useRef(new Animated.Value(-panelWidth)).current;
   const displayName = getDisplayName(profile?.full_name, user?.email);
   const handle = getHandle(profile?.username, profile?.email ?? user?.email);
   const initials = getInitials(displayName);
@@ -126,9 +131,20 @@ export function SideMenu({ visible, onClose }: SideMenuProps) {
         <Pressable style={styles.backdrop} onPress={onClose} />
 
         <Animated.View
-          style={[styles.panel, { transform: [{ translateX }], backgroundColor: theme.appBackground }]}
+          style={[
+            styles.panel,
+            {
+              width: panelWidth,
+              paddingTop: Math.max(insets.top, 22) + 18,
+              paddingBottom: Math.max(insets.bottom, 12),
+              transform: [{ translateX }],
+              backgroundColor: theme.appBackground,
+            },
+          ]}
           {...closeSwipeResponder.panHandlers}>
-          <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            contentContainerStyle={[styles.content, isCompact && styles.contentCompact]}
+            showsVerticalScrollIndicator={false}>
             <View style={styles.topRow}>
               <Text style={[styles.topLabel, { color: theme.accent }]}>Menu</Text>
               <Pressable style={[styles.closeButton, { backgroundColor: theme.cardBackground }]} onPress={onClose}>
@@ -136,16 +152,16 @@ export function SideMenu({ visible, onClose }: SideMenuProps) {
               </Pressable>
             </View>
 
-            <View style={[styles.heroCard, { backgroundColor: theme.heroBackground }]}>
-              <View style={[styles.avatar, !isGuest && { backgroundColor: avatar.backgroundColor }]}>
+            <View style={[styles.heroCard, isCompact && styles.heroCardCompact, { backgroundColor: theme.heroBackground }]}>
+              <View style={[styles.avatar, isCompact && styles.avatarCompact, !isGuest && { backgroundColor: avatar.backgroundColor }]}>
                 <Text style={styles.avatarText}>{isGuest ? initials : avatar.emoji}</Text>
               </View>
 
               <View style={styles.heroBody}>
                 <Text style={[styles.eyebrow, { color: theme.heroAccent }]}>{isGuest ? 'Guest mode' : 'Your menu'}</Text>
-                <Text style={styles.name}>{displayName}</Text>
+                <Text style={[styles.name, isCompact && styles.nameCompact]} numberOfLines={2}>{displayName}</Text>
                 <Text style={styles.handle}>{handle}</Text>
-                <Text style={styles.bio}>
+                <Text style={[styles.bio, isCompact && styles.bioCompact]}>
                   {isGuest
                     ? 'Browse recipes in guest mode, or sign in to save your favorites and build your own account.'
                     : isAccountReady
@@ -169,7 +185,7 @@ export function SideMenu({ visible, onClose }: SideMenuProps) {
               </Pressable>
             </View>
 
-            <View style={styles.statsRow}>
+            <View style={[styles.statsRow, isCompact && styles.statsRowCompact]}>
               <View style={[styles.statCard, { backgroundColor: theme.cardBackground }]}>
                 <Text style={styles.statNumber}>{savedCount}</Text>
                 <Text style={styles.statLabel}>Saved recipes</Text>
@@ -194,7 +210,11 @@ export function SideMenu({ visible, onClose }: SideMenuProps) {
                 {accountItems.map((item, index) => (
                   <Pressable
                     key={item.title}
-                    style={[styles.listRow, index < accountItems.length - 1 ? [styles.rowBorder, { borderTopColor: theme.border }] : undefined]}
+                    style={[
+                      styles.listRow,
+                      isCompact && styles.listRowCompact,
+                      index < accountItems.length - 1 ? [styles.rowBorder, { borderTopColor: theme.border }] : undefined,
+                    ]}
                     onPress={() => {
                       onClose();
                       router.push(isGuest ? item.guestHref ?? item.href : item.href);
@@ -206,7 +226,7 @@ export function SideMenu({ visible, onClose }: SideMenuProps) {
                       <Text style={styles.rowTitle}>{item.title}</Text>
                       <Text style={styles.rowSubtitle}>{item.subtitle}</Text>
                     </View>
-                    <MaterialIcons name="chevron-right" size={22} color={theme.accent} />
+                    {!isCompact ? <MaterialIcons name="chevron-right" size={22} color={theme.accent} /> : null}
                   </Pressable>
                 ))}
               </View>
@@ -215,7 +235,7 @@ export function SideMenu({ visible, onClose }: SideMenuProps) {
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Preferences</Text>
               <View style={[styles.preferenceCard, { backgroundColor: theme.cardBackground }]}>
-                <View style={styles.preferenceRow}>
+                <View style={[styles.preferenceRow, isCompact && styles.preferenceRowCompact]}>
                   <View style={styles.preferenceText}>
                     <Text style={styles.rowTitle}>Smart suggestions</Text>
                     <Text style={styles.rowSubtitle}>Recommend dishes based on what you save and search.</Text>
@@ -228,7 +248,7 @@ export function SideMenu({ visible, onClose }: SideMenuProps) {
                   />
                 </View>
 
-                <View style={[styles.preferenceRow, styles.rowBorder, { borderTopColor: theme.border }]}>
+                <View style={[styles.preferenceRow, isCompact && styles.preferenceRowCompact, styles.rowBorder, { borderTopColor: theme.border }]}>
                   <View style={styles.preferenceText}>
                     <Text style={styles.rowTitle}>Push alerts</Text>
                     <Text style={styles.rowSubtitle}>Get notified when new recipe collections arrive.</Text>
@@ -249,7 +269,11 @@ export function SideMenu({ visible, onClose }: SideMenuProps) {
                 {supportItems.map((item, index) => (
                   <Pressable
                     key={item.title}
-                    style={[styles.listRow, index < supportItems.length - 1 ? [styles.rowBorder, { borderTopColor: theme.border }] : undefined]}
+                    style={[
+                      styles.listRow,
+                      isCompact && styles.listRowCompact,
+                      index < supportItems.length - 1 ? [styles.rowBorder, { borderTopColor: theme.border }] : undefined,
+                    ]}
                     onPress={() => {
                       onClose();
                       router.push(item.href);
@@ -261,7 +285,7 @@ export function SideMenu({ visible, onClose }: SideMenuProps) {
                       <Text style={styles.rowTitle}>{item.title}</Text>
                       <Text style={styles.rowSubtitle}>{item.subtitle}</Text>
                     </View>
-                    <MaterialIcons name="chevron-right" size={22} color={theme.accent} />
+                    {!isCompact ? <MaterialIcons name="chevron-right" size={22} color={theme.accent} /> : null}
                   </Pressable>
                 ))}
               </View>
@@ -314,11 +338,8 @@ const styles = StyleSheet.create({
     left: 0,
   },
   panel: {
-    width: '86%',
-    maxWidth: 360,
     height: '100%',
     backgroundColor: '#FBF4ED',
-    paddingTop: 54,
     shadowColor: '#140C08',
     shadowOpacity: 0.18,
     shadowRadius: 16,
@@ -328,6 +349,10 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 18,
     paddingBottom: 36,
+  },
+  contentCompact: {
+    paddingHorizontal: 14,
+    paddingBottom: 28,
   },
   topRow: {
     flexDirection: 'row',
@@ -355,6 +380,10 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: '#201612',
   },
+  heroCardCompact: {
+    borderRadius: 24,
+    padding: 16,
+  },
   avatar: {
     width: 72,
     height: 72,
@@ -362,6 +391,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#C7512D',
+  },
+  avatarCompact: {
+    width: 60,
+    height: 60,
+    borderRadius: 20,
   },
   avatarText: {
     color: '#FFF8F2',
@@ -384,6 +418,10 @@ const styles = StyleSheet.create({
     fontSize: 30,
     fontWeight: '900',
   },
+  nameCompact: {
+    fontSize: 24,
+    lineHeight: 28,
+  },
   handle: {
     marginTop: 4,
     color: '#E4C7B7',
@@ -395,6 +433,10 @@ const styles = StyleSheet.create({
     color: '#D6C2B8',
     fontSize: 15,
     lineHeight: 22,
+  },
+  bioCompact: {
+    fontSize: 14,
+    lineHeight: 20,
   },
   editPill: {
     alignSelf: 'flex-start',
@@ -413,6 +455,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     marginTop: 16,
+  },
+  statsRowCompact: {
+    flexDirection: 'column',
   },
   statCard: {
     flex: 1,
@@ -476,6 +521,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
   },
+  listRowCompact: {
+    alignItems: 'flex-start',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
   preferenceCard: {
     borderRadius: 26,
     backgroundColor: '#FFFFFF',
@@ -488,6 +538,9 @@ const styles = StyleSheet.create({
     gap: 14,
     paddingHorizontal: 16,
     paddingVertical: 18,
+  },
+  preferenceRowCompact: {
+    alignItems: 'flex-start',
   },
   rowBorder: {
     borderTopWidth: 1,

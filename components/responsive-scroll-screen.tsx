@@ -19,10 +19,12 @@ export function ResponsiveScrollScreen({
   scrollRef,
 }: ResponsiveScrollScreenProps) {
   const insets = useSafeAreaInsets();
-  const paddingBottom = bottomInsetBehavior === 'tab-bar' ? 20 : Math.max(insets.bottom, 16) + 20;
+  const paddingBottom = bottomInsetBehavior === 'tab-bar' ? 0 : Math.max(insets.bottom, 16) + 20;
 
   return (
-    <SafeAreaView edges={['left', 'right']} style={[styles.safeArea, { backgroundColor }]}>
+    <SafeAreaView
+      edges={bottomInsetBehavior === 'tab-bar' ? ['left', 'right'] : ['left', 'right', 'bottom']}
+      style={[styles.safeArea, { backgroundColor }]}>
       <ScrollView
         ref={scrollRef}
         contentContainerStyle={[
