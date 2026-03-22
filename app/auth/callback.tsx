@@ -1,14 +1,17 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/components/auth-provider';
+import { resolveProtectedAuthPath } from '@/utils/auth-gate';
 import { getOAuthDebugState, getOAuthRedirectUrl } from '@/utils/oauth';
 
 export default function AuthCallbackScreen() {
+  const params = useLocalSearchParams<{ redirectTo?: string | string[] }>();
   const { isLoading, user } = useAuth();
   const [hasTimedOut, setHasTimedOut] = useState(false);
+  const redirectTo = resolveProtectedAuthPath(params.redirectTo);
   const oauthDebug = getOAuthDebugState();
   const expectedRedirectUrl = getOAuthRedirectUrl();
   const fallbackError =
@@ -30,16 +33,32 @@ export default function AuthCallbackScreen() {
     }
 
     if (user) {
+      if (redirectTo) {
+        router.replace({
+          pathname: '/account-setup',
+          params: { redirectTo },
+        });
+        return;
+      }
+
       router.replace('/account-setup');
       return;
     }
 
     if (!user && hasTimedOut) {
       if (!fallbackError) {
+        if (redirectTo) {
+          router.replace({
+            pathname: '/sign-in',
+            params: { redirectTo },
+          });
+          return;
+        }
+
         router.replace('/sign-in');
       }
     }
-  }, [fallbackError, hasTimedOut, isLoading, user]);
+  }, [fallbackError, hasTimedOut, isLoading, redirectTo, user]);
 
   return (
     <SafeAreaView style={styles.safeArea}>

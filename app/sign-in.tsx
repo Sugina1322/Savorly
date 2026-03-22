@@ -1,21 +1,37 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/components/auth-provider';
+import { getProtectedRouteNotice, resolveProtectedAuthPath } from '@/utils/auth-gate';
 
 export default function SignInScreen() {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ redirectTo?: string | string[] }>();
   const { signIn, signInWithProvider, isAccountReady, isConfigured, user } = useAuth();
   const isCompact = width < 380 || height < 760;
+  const redirectTo = resolveProtectedAuthPath(params.redirectTo);
+  const redirectNotice = getProtectedRouteNotice(redirectTo);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const openAuthCallback = useCallback(() => {
+    if (redirectTo) {
+      router.replace({
+        pathname: '/auth/callback',
+        params: { redirectTo },
+      });
+      return;
+    }
+
+    router.replace('/auth/callback');
+  }, [redirectTo]);
 
   useEffect(() => {
     if (!user) {
@@ -23,12 +39,12 @@ export default function SignInScreen() {
     }
 
     if (isAccountReady) {
-      router.replace('/landing');
+      router.replace(redirectTo ?? '/landing');
       return;
     }
 
-    router.replace('/auth/callback');
-  }, [isAccountReady, user]);
+    openAuthCallback();
+  }, [isAccountReady, openAuthCallback, redirectTo, user]);
 
   async function handleSignIn() {
     setErrorMessage(null);
@@ -36,7 +52,7 @@ export default function SignInScreen() {
 
     try {
       await signIn({ email, password });
-      router.replace('/auth/callback');
+      openAuthCallback();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Unable to sign in right now.');
     } finally {
@@ -50,7 +66,7 @@ export default function SignInScreen() {
 
     try {
       await signInWithProvider('facebook');
-      router.replace('/auth/callback');
+      openAuthCallback();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Unable to sign in with Facebook right now.');
     } finally {
@@ -64,7 +80,7 @@ export default function SignInScreen() {
 
     try {
       await signInWithProvider('google');
-      router.replace('/auth/callback');
+      openAuthCallback();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Unable to sign in with Google right now.');
     } finally {
@@ -95,6 +111,13 @@ export default function SignInScreen() {
           </View>
 
           <View style={[styles.card, isCompact && styles.cardCompact]}>
+            {redirectNotice ? (
+              <View style={styles.noticeCard}>
+                <Text style={styles.noticeTitle}>{redirectNotice.title}</Text>
+                <Text style={styles.noticeCopy}>{redirectNotice.copy}</Text>
+              </View>
+            ) : null}
+
             {!isConfigured ? (
               <View style={styles.noticeCard}>
                 <Text style={styles.noticeTitle}>Supabase not configured</Text>

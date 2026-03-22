@@ -2,26 +2,32 @@ import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
+import { useAuth } from '@/components/auth-provider';
 import { FavoriteButton } from '@/components/favorite-button';
 import { useRecipes } from '@/components/recipes-provider';
 import { useSettings } from '@/components/settings-provider';
 import { ResponsiveScrollScreen } from '@/components/responsive-scroll-screen';
 import { formatCookTime, getUiCopy } from '@/utils/app-settings-display';
+import { openProtectedRoute, PROTECTED_AUTH_ROUTES } from '@/utils/auth-gate';
 
 export default function SavedScreen() {
   const { width } = useWindowDimensions();
+  const { user } = useAuth();
   const { recipes, savedCount, smartCollections, tasteProfile, toggleFavorite } = useRecipes();
   const { settings, theme } = useSettings();
   const contentWidth = Math.min(width - 40, 460);
   const cardWidth = (contentWidth - 12) / 2;
+  const isSignedIn = Boolean(user);
   const savedRecipes = recipes.filter((recipe) => recipe.saved);
   const copy = getUiCopy(settings.language);
   const topCuisine =
     Object.entries(tasteProfile.cuisines).sort((left, right) => right[1] - left[1])[0]?.[0] ?? 'Still learning';
   const topTag = Object.entries(tasteProfile.tags).sort((left, right) => right[1] - left[1])[0]?.[0] ?? 'Exploration';
+  const topCategory =
+    Object.entries(tasteProfile.categories).sort((left, right) => right[1] - left[1])[0]?.[0] ?? 'Finding your groove';
 
   return (
-    <ResponsiveScrollScreen backgroundColor={theme.tabBarBackground} contentStyle={styles.screenPadding}>
+    <ResponsiveScrollScreen backgroundColor={theme.tabBarBackground} bottomInsetBehavior="tab-bar" contentStyle={styles.screenPadding}>
       <Text style={styles.title}>{copy.savedRecipes}</Text>
       <Text style={styles.subtitle}>Your personal board of dishes worth coming back to.</Text>
 
@@ -33,7 +39,9 @@ export default function SavedScreen() {
         <Pressable style={[styles.miniButton, { backgroundColor: theme.heroBackground }]} onPress={() => router.push('/(tabs)/discover')}>
           <Text style={styles.miniButtonText}>{copy.browseAll}</Text>
         </Pressable>
-        <Pressable style={[styles.miniButton, styles.miniButtonLight, { backgroundColor: theme.accentSoft }]} onPress={() => router.push('/add-recipe')}>
+        <Pressable
+          style={[styles.miniButton, styles.miniButtonLight, { backgroundColor: theme.accentSoft }]}
+          onPress={() => openProtectedRoute(isSignedIn, PROTECTED_AUTH_ROUTES.addRecipe)}>
           <Text style={[styles.miniButtonTextDark, { color: theme.accent }]}>{copy.addRecipe}</Text>
         </Pressable>
       </View>
@@ -42,6 +50,7 @@ export default function SavedScreen() {
         <Text style={[styles.profileTitle, { color: theme.accent }]}>Taste Profile</Text>
         <Text style={styles.profileCopy}>Top cuisine: {topCuisine}</Text>
         <Text style={styles.profileCopy}>Top mood: {topTag}</Text>
+        <Text style={styles.profileCopy}>Top category: {topCategory}</Text>
         <Text style={styles.profileHint}>This profile updates from saves, searches, and recipe views.</Text>
       </View>
 
@@ -51,47 +60,68 @@ export default function SavedScreen() {
           <Text style={styles.collectionsSubtitle}>Auto-grouped from your saved habits and recipe patterns.</Text>
           <View style={styles.collectionsGrid}>
             {smartCollections.map((collection) => (
-              <View key={collection.id} style={[styles.collectionCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+              <Pressable
+                key={collection.id}
+                style={[styles.collectionCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
+                onPress={() =>
+                  router.push({
+                    pathname: '/collection/[id]',
+                    params: { id: collection.id },
+                  })
+                }>
                 <Text style={[styles.collectionName, { color: theme.accent }]}>{collection.title}</Text>
                 <Text style={styles.collectionCopy}>{collection.subtitle}</Text>
                 <Text style={styles.collectionCount}>{collection.recipeIds.length} recipes</Text>
-              </View>
+                <Text style={[styles.collectionAction, { color: theme.accent }]}>Open collection</Text>
+              </Pressable>
             ))}
           </View>
         </View>
       ) : null}
 
-      <View style={styles.grid}>
-        {savedRecipes.map((recipe, index) => {
-          const isWide = index === 0;
-          return (
-            <Pressable
-              key={recipe.id}
-              style={[styles.card, isWide ? { width: contentWidth } : { width: cardWidth }]}
-              onPress={() =>
-                router.push({
-                  pathname: '/recipe/[id]',
-                  params: { id: recipe.id },
-                })
-              }>
-              <Image
-                source={recipe.image}
-                style={[styles.image, isWide ? styles.imageWide : styles.imageHalf]}
-                contentFit="cover"
-              />
-              <View style={styles.cardFavorite}>
-                <FavoriteButton active={recipe.saved} onPress={() => toggleFavorite(recipe.id)} />
-              </View>
-              <View style={styles.overlay}>
-                <Text style={styles.cardTitle}>{recipe.title}</Text>
-                <Text style={styles.cardMeta}>
-                  {recipe.cuisine} - {formatCookTime(recipe.cookTime, settings.language)}
-                </Text>
-              </View>
-            </Pressable>
-          );
-        })}
-      </View>
+      {savedRecipes.length > 0 ? (
+        <View style={styles.grid}>
+          {savedRecipes.map((recipe, index) => {
+            const isWide = index === 0;
+            return (
+              <Pressable
+                key={recipe.id}
+                style={[styles.card, isWide ? { width: contentWidth } : { width: cardWidth }]}
+                onPress={() =>
+                  router.push({
+                    pathname: '/recipe/[id]',
+                    params: { id: recipe.id },
+                  })
+                }>
+                <Image
+                  source={recipe.image}
+                  style={[styles.image, isWide ? styles.imageWide : styles.imageHalf]}
+                  contentFit="cover"
+                />
+                <View style={styles.cardFavorite}>
+                  <FavoriteButton active={recipe.saved} onPress={() => toggleFavorite(recipe.id)} />
+                </View>
+                <View style={styles.overlay}>
+                  <Text style={styles.cardTitle}>{recipe.title}</Text>
+                  <Text style={styles.cardMeta}>
+                    {recipe.cuisine} - {formatCookTime(recipe.cookTime, settings.language)}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : (
+        <View style={[styles.emptyState, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+          <Text style={styles.emptyTitle}>No saved recipes yet</Text>
+          <Text style={styles.emptyCopy}>
+            Save a few dishes from Discover or Search and they&apos;ll show up here with smarter collections.
+          </Text>
+          <Pressable style={[styles.emptyButton, { backgroundColor: theme.accent }]} onPress={() => router.push('/(tabs)/discover')}>
+            <Text style={styles.emptyButtonText}>Browse recipes</Text>
+          </Pressable>
+        </View>
+      )}
     </ResponsiveScrollScreen>
   );
 }
@@ -113,6 +143,7 @@ const styles = StyleSheet.create({
   collectionName: { fontSize: 16, fontWeight: '800' },
   collectionCopy: { marginTop: 6, color: '#6B5F58', fontSize: 13, lineHeight: 18 },
   collectionCount: { marginTop: 10, color: '#23150F', fontSize: 12, fontWeight: '700' },
+  collectionAction: { marginTop: 12, fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.7 },
   statsCard: {
     borderRadius: 24,
     padding: 20,
@@ -133,6 +164,35 @@ const styles = StyleSheet.create({
   miniButtonText: { color: '#FFF8F2', fontSize: 13, fontWeight: '800' },
   miniButtonTextDark: { color: '#9E4E2C', fontSize: 13, fontWeight: '800' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 14 },
+  emptyState: {
+    marginTop: 16,
+    borderRadius: 26,
+    borderWidth: 1,
+    padding: 22,
+    alignItems: 'flex-start',
+  },
+  emptyTitle: {
+    color: '#23150F',
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  emptyCopy: {
+    marginTop: 8,
+    color: '#6B5F58',
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  emptyButton: {
+    marginTop: 16,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  emptyButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+  },
   card: {
     borderRadius: 26,
     overflow: 'hidden',

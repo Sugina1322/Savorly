@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { router } from 'expo-router';
-import { useEffect, useMemo, useRef } from 'react';
+import { router, type Href } from 'expo-router';
+import { type ComponentProps, useEffect, useMemo, useRef } from 'react';
 import {
   Animated,
   Modal,
@@ -23,46 +23,61 @@ type SideMenuProps = {
   onClose: () => void;
 };
 
-const accountItems = [
+type MenuItem = {
+  icon: ComponentProps<typeof MaterialIcons>['name'];
+  title: string;
+  subtitle: string;
+  href: Href;
+  guestHref?: Href;
+};
+
+const accountItems: MenuItem[] = [
   {
     icon: 'person-outline' as const,
     title: 'Edit profile',
     subtitle: 'Name, photo, bio, and food preferences',
+    href: '/edit-profile',
+    guestHref: '/sign-in',
   },
   {
     icon: 'favorite-border' as const,
     title: 'Taste profile',
     subtitle: 'Spicy level, cuisines, and dietary needs',
+    href: '/taste-profile',
+    guestHref: '/sign-in',
   },
   {
     icon: 'notifications-none' as const,
     title: 'Notifications',
-    subtitle: 'Recipe drops, saves, and reminder alerts',
+    subtitle: 'Manage alerts and reminder preferences',
+    href: '/notifications',
   },
 ];
 
-const supportItems = [
+const supportItems: MenuItem[] = [
   {
     icon: 'info-outline' as const,
     title: 'About Savorly',
     subtitle: 'Learn more about the app',
-    action: () => router.push('/modal'),
+    href: '/modal',
   },
   {
     icon: 'security' as const,
     title: 'Settings',
     subtitle: 'Theme, language, alerts, and app preferences',
+    href: '/settings',
   },
   {
     icon: 'help-outline' as const,
     title: 'Help center',
     subtitle: 'FAQs and support options',
+    href: '/help-center',
   },
 ];
 
 export function SideMenu({ visible, onClose }: SideMenuProps) {
   const { isAccountReady, profile, signOut, user } = useAuth();
-  const { savedCount } = useRecipes();
+  const { kitchenPulse, savedCount, smartCollections } = useRecipes();
   const { setPushAlerts, setSmartSuggestions, settings, theme } = useSettings();
   const translateX = useRef(new Animated.Value(-360)).current;
   const panelWidth = 360;
@@ -160,9 +175,17 @@ export function SideMenu({ visible, onClose }: SideMenuProps) {
                 <Text style={styles.statLabel}>Saved recipes</Text>
               </View>
               <View style={[styles.statCard, { backgroundColor: theme.cardBackground }]}>
-                <Text style={styles.statNumber}>7</Text>
-                <Text style={styles.statLabel}>Collections</Text>
+                <Text style={styles.statNumber}>{smartCollections.length}</Text>
+                <Text style={styles.statLabel}>Smart collections</Text>
               </View>
+            </View>
+
+            <View style={[styles.profilePulseCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+              <Text style={[styles.profilePulseLabel, { color: theme.accent }]}>Kitchen pulse</Text>
+              <Text style={styles.profilePulseTitle}>{kitchenPulse.category}</Text>
+              <Text style={styles.profilePulseCopy}>
+                {kitchenPulse.reason}
+              </Text>
             </View>
 
             <View style={styles.section}>
@@ -173,28 +196,8 @@ export function SideMenu({ visible, onClose }: SideMenuProps) {
                     key={item.title}
                     style={[styles.listRow, index < accountItems.length - 1 ? [styles.rowBorder, { borderTopColor: theme.border }] : undefined]}
                     onPress={() => {
-                      if (item.title === 'Edit profile') {
-                        onClose();
-
-                        if (isGuest) {
-                          router.push('/sign-in');
-                          return;
-                        }
-
-                        router.push('/edit-profile');
-                        return;
-                      }
-
-                      if (item.title === 'Taste profile') {
-                        onClose();
-
-                        if (isGuest) {
-                          router.push('/sign-in');
-                          return;
-                        }
-
-                        router.push('/taste-profile');
-                      }
+                      onClose();
+                      router.push(isGuest ? item.guestHref ?? item.href : item.href);
                     }}>
                     <View style={[styles.leadingIcon, { backgroundColor: theme.accentSoft }]}>
                       <MaterialIcons name={item.icon} size={22} color={theme.accent} />
@@ -248,12 +251,8 @@ export function SideMenu({ visible, onClose }: SideMenuProps) {
                     key={item.title}
                     style={[styles.listRow, index < supportItems.length - 1 ? [styles.rowBorder, { borderTopColor: theme.border }] : undefined]}
                     onPress={() => {
-                      if (item.title === 'Settings') {
-                        router.push('/settings');
-                      } else {
-                        item.action?.();
-                      }
                       onClose();
+                      router.push(item.href);
                     }}>
                     <View style={[styles.leadingIconMuted, { backgroundColor: theme.accentSoft }]}>
                       <MaterialIcons name={item.icon} size={22} color={theme.accent} />
@@ -435,6 +434,30 @@ const styles = StyleSheet.create({
   },
   section: {
     marginTop: 24,
+  },
+  profilePulseCard: {
+    marginTop: 16,
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 16,
+  },
+  profilePulseLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 1.1,
+  },
+  profilePulseTitle: {
+    marginTop: 8,
+    color: '#241611',
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  profilePulseCopy: {
+    marginTop: 8,
+    color: '#7B6C63',
+    fontSize: 13,
+    lineHeight: 19,
   },
   sectionTitle: {
     color: '#241611',

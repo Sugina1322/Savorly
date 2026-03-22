@@ -1,29 +1,35 @@
-import { PropsWithChildren } from 'react';
+import { PropsWithChildren, RefObject } from 'react';
 import { ScrollView, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type ResponsiveScrollScreenProps = PropsWithChildren<{
   backgroundColor?: string;
+  bottomInsetBehavior?: 'safe-area' | 'tab-bar';
   contentStyle?: StyleProp<ViewStyle>;
   contentWrapStyle?: StyleProp<ViewStyle>;
+  scrollRef?: RefObject<ScrollView | null>;
 }>;
 
 export function ResponsiveScrollScreen({
   children,
   backgroundColor = '#FFF8F2',
+  bottomInsetBehavior = 'safe-area',
   contentStyle,
   contentWrapStyle,
+  scrollRef,
 }: ResponsiveScrollScreenProps) {
   const insets = useSafeAreaInsets();
+  const paddingBottom = bottomInsetBehavior === 'tab-bar' ? 20 : Math.max(insets.bottom, 16) + 20;
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor }]}>
+    <SafeAreaView edges={['left', 'right']} style={[styles.safeArea, { backgroundColor }]}>
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={[
           styles.content,
           {
             paddingTop: Math.max(insets.top, 10) + 10,
-            paddingBottom: Math.max(insets.bottom, 16) + 20,
+            paddingBottom,
           },
           contentStyle,
         ]}

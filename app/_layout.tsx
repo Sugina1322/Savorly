@@ -31,27 +31,50 @@ export default function RootLayout() {
             {isBooting ? (
               <LoadingScreen />
             ) : (
-            <Stack>
-              <Stack.Screen name="index" options={{ headerShown: false }} />
-              <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
-              <Stack.Screen name="account-setup" options={{ headerShown: false }} />
-              <Stack.Screen name="sign-in" options={{ headerShown: false }} />
-              <Stack.Screen name="sign-up" options={{ headerShown: false }} />
-              <Stack.Screen name="edit-profile" options={{ headerShown: false }} />
-              <Stack.Screen name="taste-profile" options={{ headerShown: false }} />
-              <Stack.Screen name="settings" options={{ headerShown: false }} />
-              <Stack.Screen name="add-recipe" options={{ headerShown: false }} />
-              <Stack.Screen name="landing" options={{ headerShown: false }} />
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen
-                name="recipe/[id]"
-                options={{
-                  headerShown: false,
-                  presentation: 'card',
-                }}
-              />
-              <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'About Savorly' }} />
-            </Stack>
+              <Stack>
+                <Stack.Screen name="index" options={{ headerShown: false }} />
+                <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
+                <Stack.Screen name="account-setup" options={{ headerShown: false }} />
+                <Stack.Screen name="sign-in" options={{ headerShown: false }} />
+                <Stack.Screen name="sign-up" options={{ headerShown: false }} />
+                <Stack.Screen name="edit-profile" options={{ headerShown: false }} />
+                <Stack.Screen name="taste-profile" options={{ headerShown: false }} />
+                <Stack.Screen name="notifications" options={{ headerShown: false }} />
+                <Stack.Screen name="settings" options={{ headerShown: false }} />
+                <Stack.Screen name="help-center" options={{ headerShown: false }} />
+                <Stack.Screen name="add-recipe" options={{ headerShown: false }} />
+                <Stack.Screen name="meal-planner" options={{ headerShown: false }} />
+                <Stack.Screen name="landing" options={{ headerShown: false }} />
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen
+                  name="category/[slug]"
+                  options={{
+                    headerShown: false,
+                    presentation: 'card',
+                  }}
+                />
+                <Stack.Screen
+                  name="collection/[id]"
+                  options={{
+                    headerShown: false,
+                    presentation: 'card',
+                  }}
+                />
+                <Stack.Screen
+                  name="recipe/[id]"
+                  options={{
+                    headerShown: false,
+                    presentation: 'card',
+                  }}
+                />
+                <Stack.Screen
+                  name="modal"
+                  options={{
+                    headerShown: false,
+                    presentation: 'modal',
+                  }}
+                />
+              </Stack>
             )}
           </RecipesProvider>
         </AuthProvider>

@@ -4,28 +4,71 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useAuth } from '@/components/auth-provider';
 import { useRecipes } from '@/components/recipes-provider';
 import { useSettings } from '@/components/settings-provider';
 import { getUiCopy } from '@/utils/app-settings-display';
+import { PROTECTED_AUTH_ROUTES, useProtectedRouteGuard } from '@/utils/auth-gate';
+import { parseCookTimeMinutes, parseServingsCount } from '@/utils/recipe-intelligence';
+
+function parseListInput(value: string) {
+  return value
+    .split(/\r?\n+/)
+    .map((line) => line.replace(/^\s*(?:[-*]|\u2022|\d+[.)])\s*/, '').trim())
+    .filter(Boolean);
+}
 
 export default function AddRecipeScreen() {
   const { width } = useWindowDimensions();
   const isCompact = width < 420;
+  const { isLoading: isAuthLoading, user } = useAuth();
   const { addRecipeFromIdea } = useRecipes();
   const { settings, theme } = useSettings();
   const copy = getUiCopy(settings.language);
+  const hasAccess = useProtectedRouteGuard(isAuthLoading, Boolean(user), PROTECTED_AUTH_ROUTES.addRecipe);
   const [title, setTitle] = useState('');
   const [cuisine, setCuisine] = useState('');
   const [cookTime, setCookTime] = useState('');
+  const [servings, setServings] = useState('');
   const [description, setDescription] = useState('');
+  const [ingredientsInput, setIngredientsInput] = useState('');
+  const [stepsInput, setStepsInput] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  if (!hasAccess) {
+    return null;
+  }
 
   async function handleSaveRecipe() {
     setErrorMessage(null);
 
     if (!title.trim()) {
-      setErrorMessage('Give the smart draft at least a recipe title to work from.');
+      setErrorMessage('Give your recipe a title.');
+      return;
+    }
+
+    const parsedCookTime = parseCookTimeMinutes(cookTime);
+    if (!parsedCookTime) {
+      setErrorMessage('Add an accurate cook time, like `30` or `1 hr 15 min`.');
+      return;
+    }
+
+    const parsedServings = parseServingsCount(servings);
+    if (!parsedServings) {
+      setErrorMessage('Add how many servings this recipe makes.');
+      return;
+    }
+
+    const ingredients = parseListInput(ingredientsInput);
+    if (ingredients.length === 0) {
+      setErrorMessage('List at least one ingredient so the recipe stays accurate.');
+      return;
+    }
+
+    const steps = parseListInput(stepsInput);
+    if (steps.length === 0) {
+      setErrorMessage('Add at least one cooking step so the recipe is usable later.');
       return;
     }
 
@@ -36,7 +79,10 @@ export default function AddRecipeScreen() {
         title,
         cuisine,
         cookTime,
+        servings,
         description,
+        ingredients,
+        steps,
       });
 
       router.replace({
@@ -44,7 +90,7 @@ export default function AddRecipeScreen() {
         params: { id: recipe.id },
       });
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Unable to build a smart recipe draft right now.');
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to save your recipe right now.');
     } finally {
       setIsSaving(false);
     }
@@ -63,7 +109,8 @@ export default function AddRecipeScreen() {
             <Text style={[styles.eyebrow, { color: theme.accent }]}>{copy.yourRecipe}</Text>
             <Text style={styles.title}>Add something worth saving.</Text>
             <Text style={styles.subtitle}>
-              Start with a rough idea and Savorly will generate a smarter draft with inferred tags, ingredients, and steps.
+              Enter the real cook time, servings, ingredients, and steps so the recipe you save matches what you
+              actually want to cook later.
             </Text>
           </View>
 
@@ -82,6 +129,7 @@ export default function AddRecipeScreen() {
             <View style={[styles.row, isCompact && styles.rowCompact]}>
               <View style={[styles.fieldGroup, styles.rowField]}>
                 <Text style={styles.label}>Cuisine</Text>
+                <Text style={styles.fieldHint}>Optional. Helpful for search and browsing.</Text>
                 <TextInput
                   value={cuisine}
                   onChangeText={setCuisine}
@@ -93,18 +141,34 @@ export default function AddRecipeScreen() {
 
               <View style={[styles.fieldGroup, styles.rowField]}>
                 <Text style={styles.label}>Cook time</Text>
+                <Text style={styles.fieldHint}>Required. Use minutes or `1 hr 15 min`.</Text>
                 <TextInput
                   value={cookTime}
                   onChangeText={setCookTime}
                   placeholder="30 min"
                   placeholderTextColor="#9C8B82"
+                  autoCapitalize="none"
                   style={[styles.input, { borderColor: theme.border }]}
                 />
               </View>
             </View>
 
             <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Servings</Text>
+              <Text style={styles.fieldHint}>Required. How many people this recipe feeds.</Text>
+              <TextInput
+                value={servings}
+                onChangeText={setServings}
+                placeholder="4"
+                placeholderTextColor="#9C8B82"
+                keyboardType="number-pad"
+                style={[styles.input, { borderColor: theme.border }]}
+              />
+            </View>
+
+            <View style={styles.fieldGroup}>
               <Text style={styles.label}>Description</Text>
+              <Text style={styles.fieldHint}>Optional. Add extra context if the title does not say enough.</Text>
               <TextInput
                 value={description}
                 onChangeText={setDescription}
@@ -116,13 +180,47 @@ export default function AddRecipeScreen() {
               />
             </View>
 
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Ingredients needed</Text>
+              <Text style={styles.fieldHint}>Required. Add one ingredient per line.</Text>
+              <TextInput
+                value={ingredientsInput}
+                onChangeText={setIngredientsInput}
+                placeholder={`2 chicken breasts\n3 cloves garlic\n1 cup rice`}
+                placeholderTextColor="#9C8B82"
+                multiline
+                textAlignVertical="top"
+                style={[styles.listArea, { borderColor: theme.border }]}
+              />
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Cooking steps</Text>
+              <Text style={styles.fieldHint}>Required. Add one step per line in the order you actually cook them.</Text>
+              <TextInput
+                value={stepsInput}
+                onChangeText={setStepsInput}
+                placeholder={`Season the chicken.\nSear until golden.\nServe with rice and sauce.`}
+                placeholderTextColor="#9C8B82"
+                multiline
+                textAlignVertical="top"
+                style={[styles.listArea, styles.stepsArea, { borderColor: theme.border }]}
+              />
+            </View>
+
             {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
 
-            <Pressable style={[styles.primaryButton, { backgroundColor: theme.accent }, isSaving && styles.buttonDisabled]} onPress={handleSaveRecipe} disabled={isSaving}>
-              <Text style={styles.primaryButtonText}>{isSaving ? 'Building smart draft...' : copy.saveRecipe}</Text>
+            <Pressable
+              style={[styles.primaryButton, { backgroundColor: theme.accent }, isSaving && styles.buttonDisabled]}
+              onPress={handleSaveRecipe}
+              disabled={isSaving}>
+              <Text style={styles.primaryButtonText}>{isSaving ? 'Saving recipe...' : copy.saveRecipe}</Text>
             </Pressable>
 
-            <Text style={styles.helperText}>The app will infer missing details, suggest tags, and save the recipe directly into your collection.</Text>
+            <Text style={styles.helperText}>
+              Savorly keeps the ingredients, steps, cook time, and servings exactly as you enter them so your saved
+              recipe stays accurate later.
+            </Text>
           </View>
         </View>
       </ScrollView>
@@ -207,6 +305,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 8,
   },
+  fieldHint: {
+    marginTop: -2,
+    marginBottom: 8,
+    color: '#8A7B73',
+    fontSize: 12,
+    lineHeight: 17,
+  },
   input: {
     borderWidth: 1,
     borderColor: '#EEDBCF',
@@ -227,6 +332,20 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     color: '#251712',
     fontSize: 15,
+  },
+  listArea: {
+    minHeight: 124,
+    borderWidth: 1,
+    borderColor: '#EEDBCF',
+    borderRadius: 18,
+    backgroundColor: '#FFF9F5',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    color: '#251712',
+    fontSize: 15,
+  },
+  stepsArea: {
+    minHeight: 150,
   },
   primaryButton: {
     marginTop: 4,

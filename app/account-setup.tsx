@@ -1,12 +1,15 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/components/auth-provider';
+import { resolveProtectedAuthPath } from '@/utils/auth-gate';
 
 export default function AccountSetupScreen() {
+  const params = useLocalSearchParams<{ redirectTo?: string | string[] }>();
   const { accountError, isAccountReady, isLoading, isProfileLoading, refreshAccount, signOut, user } = useAuth();
+  const redirectTo = resolveProtectedAuthPath(params.redirectTo);
 
   useEffect(() => {
     if (isLoading || isProfileLoading) {
@@ -14,14 +17,22 @@ export default function AccountSetupScreen() {
     }
 
     if (!user) {
+      if (redirectTo) {
+        router.replace({
+          pathname: '/sign-in',
+          params: { redirectTo },
+        });
+        return;
+      }
+
       router.replace('/sign-in');
       return;
     }
 
     if (isAccountReady) {
-      router.replace('/landing');
+      router.replace(redirectTo ?? '/landing');
     }
-  }, [isAccountReady, isLoading, isProfileLoading, user]);
+  }, [isAccountReady, isLoading, isProfileLoading, redirectTo, user]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -54,6 +65,14 @@ export default function AccountSetupScreen() {
                 } catch (error) {
                   console.warn('Failed to sign out after account setup error', error);
                 } finally {
+                  if (redirectTo) {
+                    router.replace({
+                      pathname: '/sign-in',
+                      params: { redirectTo },
+                    });
+                    return;
+                  }
+
                   router.replace('/sign-in');
                 }
               }}>
