@@ -92,6 +92,7 @@ export default function LandingScreen() {
       ? `${tomorrowMealCount} ready for tomorrow`
       : 'You can also map out tomorrow in advance';
   const copy = getUiCopy(settings.language);
+  const recommendationsEnabled = settings.smartSuggestions;
   const isSignedIn = Boolean(user);
   const firstName =
     profile?.full_name?.trim().split(' ')[0] ||
@@ -232,7 +233,9 @@ export default function LandingScreen() {
               ))}
             </View>
             <Text style={styles.quickStartCopy}>
-              {smartCollections.length > 0
+              {!recommendationsEnabled
+                ? 'Personalized smart collections are paused right now, so this board is leaning on category-first browsing instead.'
+                : smartCollections.length > 0
                 ? `Your taste profile is already building smart collections like ${smartCollections[0].title.toLowerCase()}.`
                 : 'Jump into a category when you want a quick answer instead of scrolling the full recipe list.'}
             </Text>
@@ -318,6 +321,22 @@ export default function LandingScreen() {
                     </Text>
                   </Pressable>
                 ))}
+              </View>
+            </View>
+          ) : !settings.smartSuggestions ? (
+            <View style={styles.previewSection}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>For you</Text>
+                <Text style={[styles.sectionCaption, { color: theme.accent }]}>Paused</Text>
+              </View>
+              <View style={[styles.pausedCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+                <Text style={styles.pausedTitle}>Smart suggestions are currently off.</Text>
+                <Text style={styles.pausedCopy}>
+                  The app is still browseable, but recommendation-based picks stay hidden until you re-enable smart suggestions in Settings.
+                </Text>
+                <Pressable style={[styles.pausedButton, { backgroundColor: theme.accentSoft }]} onPress={() => router.push('/settings')}>
+                  <Text style={[styles.pausedButtonText, { color: theme.accent }]}>Open settings</Text>
+                </Pressable>
               </View>
             </View>
           ) : null}
@@ -599,6 +618,33 @@ const styles = StyleSheet.create({
   sectionCaption: { color: '#A16244', fontSize: 12, fontWeight: '700' },
   previewGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   smartList: { gap: 10 },
+  pausedCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: 16,
+  },
+  pausedTitle: {
+    color: '#23150F',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  pausedCopy: {
+    marginTop: 8,
+    color: '#6B5F58',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  pausedButton: {
+    alignSelf: 'flex-start',
+    marginTop: 12,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  pausedButtonText: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
   smartCard: {
     borderRadius: 22,
     borderWidth: 1,

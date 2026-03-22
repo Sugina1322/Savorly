@@ -14,18 +14,34 @@ export default function NotificationsScreen() {
   const { settings, setPushAlerts, setSmartSuggestions, theme } = useSettings();
   const isSignedIn = Boolean(user);
   const upcomingMealCount = Object.values(mealPlans).reduce((total, dayPlan) => total + Object.keys(dayPlan).length, 0);
+  const pushStatusTitle = settings.pushAlerts ? 'Push alerts are active' : 'Push alerts are paused';
+  const pushStatusCopy = settings.pushAlerts
+    ? upcomingMealCount > 0
+      ? `You have ${upcomingMealCount} planned meal slot${upcomingMealCount === 1 ? '' : 's'} that can trigger reminders.`
+      : 'Turn meal planning into timely nudges when you start filling breakfast, lunch, or dinner slots.'
+    : 'Reminder banners and collection alerts stay quiet until you turn push alerts back on.';
+  const suggestionStatusTitle = settings.smartSuggestions ? 'Suggestion alerts are active' : 'Suggestion alerts are paused';
+  const suggestionStatusCopy = settings.smartSuggestions
+    ? smartCollections.length > 0
+      ? `${smartCollections.length} smart collection${smartCollections.length === 1 ? '' : 's'} are ready to shape future suggestions.`
+      : 'Save and search a little more to make the next recommendation batch feel sharper.'
+    : 'Savorly will stop surfacing recommendation-driven alerts until smart suggestions are enabled again.';
 
   const activityItems = [
     {
       icon: 'campaign' as const,
-      title: featuredPick?.recipe.title ?? 'Today\'s featured pick',
-      copy: featuredPick?.reason ?? 'A featured recipe is ready for you to explore.',
+      title: settings.smartSuggestions ? featuredPick?.recipe.title ?? 'Today\'s featured pick' : 'Suggestion alerts paused',
+      copy: settings.smartSuggestions
+        ? featuredPick?.reason ?? 'A featured recipe is ready for you to explore.'
+        : 'Smart picks are currently hidden from alert previews because suggestion alerts are turned off.',
     },
     {
       icon: 'calendar-month' as const,
-      title: upcomingMealCount > 0 ? `${upcomingMealCount} meal slots planned` : 'Meal planner is waiting',
+      title: upcomingMealCount > 0 ? `${upcomingMealCount} meal slots planned` : settings.pushAlerts ? 'Meal planner is waiting' : 'Planner nudges paused',
       copy:
-        upcomingMealCount > 0
+        !settings.pushAlerts
+          ? 'Planner reminders will stay muted until push alerts are enabled again.'
+          : upcomingMealCount > 0
           ? 'Planner reminders can nudge you before your next cook.'
           : 'Add a few breakfasts, lunches, or dinners and reminders will feel more useful.',
     },
@@ -96,6 +112,26 @@ export default function NotificationsScreen() {
             value={settings.smartSuggestions}
             onValueChange={setSmartSuggestions}
           />
+        </View>
+      </View>
+
+      <View style={styles.activitySection}>
+        <Text style={styles.sectionTitle}>Notification health</Text>
+        <View style={styles.statusRow}>
+          <View style={[styles.statusCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+            <Text style={[styles.statusEyebrow, { color: settings.pushAlerts ? theme.accent : '#A16244' }]}>
+              {settings.pushAlerts ? 'Live' : 'Paused'}
+            </Text>
+            <Text style={styles.statusTitle}>{pushStatusTitle}</Text>
+            <Text style={styles.statusCopy}>{pushStatusCopy}</Text>
+          </View>
+          <View style={[styles.statusCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+            <Text style={[styles.statusEyebrow, { color: settings.smartSuggestions ? theme.accent : '#A16244' }]}>
+              {settings.smartSuggestions ? 'Personalized' : 'Manual mode'}
+            </Text>
+            <Text style={styles.statusTitle}>{suggestionStatusTitle}</Text>
+            <Text style={styles.statusCopy}>{suggestionStatusCopy}</Text>
+          </View>
         </View>
       </View>
 
@@ -242,6 +278,33 @@ const styles = StyleSheet.create({
   },
   activitySection: {
     marginTop: 24,
+  },
+  statusRow: {
+    gap: 12,
+    marginTop: 14,
+  },
+  statusCard: {
+    borderRadius: 24,
+    borderWidth: 1,
+    padding: 16,
+  },
+  statusEyebrow: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  statusTitle: {
+    marginTop: 8,
+    color: '#241611',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  statusCopy: {
+    marginTop: 6,
+    color: '#7B6C63',
+    fontSize: 13,
+    lineHeight: 19,
   },
   activityList: {
     gap: 12,

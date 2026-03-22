@@ -38,12 +38,14 @@ export default function CollectionDetailScreen() {
         <View style={[styles.emptyCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
           <Text style={styles.emptyTitle}>Collection not available</Text>
           <Text style={styles.emptyCopy}>
-            Smart collections update as your saves and searches change, so this one may have refreshed away.
+            {settings.smartSuggestions
+              ? 'Smart collections update as your saves and searches change, so this one may have refreshed away.'
+              : 'Smart suggestions are turned off right now, so saved collections are temporarily hidden until that setting is enabled again.'}
           </Text>
           <Pressable
             style={[styles.emptyButton, { backgroundColor: theme.accent }]}
-            onPress={() => router.replace('/(tabs)/saved')}>
-            <Text style={styles.emptyButtonText}>Back to saved recipes</Text>
+            onPress={() => router.replace(settings.smartSuggestions ? '/(tabs)/saved' : '/settings')}>
+            <Text style={styles.emptyButtonText}>{settings.smartSuggestions ? 'Back to saved recipes' : 'Open settings'}</Text>
           </Pressable>
         </View>
       </ResponsiveScrollScreen>

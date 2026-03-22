@@ -21,6 +21,7 @@ export default function SavedScreen() {
   const isSignedIn = Boolean(user);
   const savedRecipes = recipes.filter((recipe) => recipe.saved);
   const copy = getUiCopy(settings.language);
+  const recommendationsEnabled = settings.smartSuggestions;
   const topCuisine =
     Object.entries(tasteProfile.cuisines).sort((left, right) => right[1] - left[1])[0]?.[0] ?? 'Still learning';
   const topTag = Object.entries(tasteProfile.tags).sort((left, right) => right[1] - left[1])[0]?.[0] ?? 'Exploration';
@@ -76,7 +77,18 @@ export default function SavedScreen() {
         <Text style={styles.profileHint}>This profile updates from saves, searches, and recipe views.</Text>
       </View>
 
-      {smartCollections.length > 0 ? (
+      {!recommendationsEnabled ? (
+        <View style={[styles.infoCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+          <Text style={[styles.infoEyebrow, { color: theme.accent }]}>Smart collections paused</Text>
+          <Text style={styles.infoTitle}>Saved recipes stay here, but auto-grouping is turned off.</Text>
+          <Text style={styles.infoCopy}>
+            Turn smart suggestions back on in Settings if you want Savorly to cluster this board into taste-based collections again.
+          </Text>
+          <Pressable style={[styles.infoButton, { backgroundColor: theme.accentSoft }]} onPress={() => router.push('/settings')}>
+            <Text style={[styles.infoButtonText, { color: theme.accent }]}>Open settings</Text>
+          </Pressable>
+        </View>
+      ) : smartCollections.length > 0 ? (
         <View style={styles.collectionsSection}>
           <View style={styles.collectionsHeader}>
             <Text style={styles.collectionsTitle}>Smart collections</Text>
@@ -110,6 +122,14 @@ export default function SavedScreen() {
               </Pressable>
             ))}
           </ScrollView>
+        </View>
+      ) : savedRecipes.length > 0 ? (
+        <View style={[styles.infoCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+          <Text style={[styles.infoEyebrow, { color: theme.accent }]}>Collections warming up</Text>
+          <Text style={styles.infoTitle}>You have saved recipes, but the auto-grouping is still learning.</Text>
+          <Text style={styles.infoCopy}>
+            Open a few recipes, search for dishes, or save a bit more and Savorly will start building smart collections here.
+          </Text>
         </View>
       ) : null}
 
@@ -171,6 +191,12 @@ const styles = StyleSheet.create({
   profileTitle: { fontSize: 16, fontWeight: '800' },
   profileCopy: { marginTop: 6, color: '#23150F', fontSize: 14, fontWeight: '700' },
   profileHint: { marginTop: 8, color: '#6B5F58', fontSize: 12, lineHeight: 18 },
+  infoCard: { marginTop: 18, borderRadius: 22, borderWidth: 1, padding: 16 },
+  infoEyebrow: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.8 },
+  infoTitle: { marginTop: 8, color: '#23150F', fontSize: 18, fontWeight: '800' },
+  infoCopy: { marginTop: 8, color: '#6B5F58', fontSize: 13, lineHeight: 19 },
+  infoButton: { alignSelf: 'flex-start', marginTop: 12, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 10 },
+  infoButtonText: { fontSize: 13, fontWeight: '800' },
   collectionsSection: { marginTop: 24 },
   collectionsHeader: {
     flexDirection: 'row',
