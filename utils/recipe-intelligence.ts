@@ -90,6 +90,23 @@ type CatalogSignals = {
   tagFrequency: Record<string, number>;
 };
 
+type RecipeAnalysis = {
+  tokens: string[];
+  tokenSet: Set<string>;
+  documentLength: number;
+  searchableText: string;
+  normalizedIngredients: string[];
+  categorySet: Set<string>;
+  tagSet: Set<string>;
+};
+
+type SearchIndex = {
+  analyses: Map<string, RecipeAnalysis>;
+  averageDocumentLength: number;
+  documentFrequencyByToken: Map<string, number>;
+  recipeById: Map<string, Recipe>;
+};
+
 function normalize(text: string) {
   return text.trim().toLowerCase();
 }
@@ -298,13 +315,26 @@ function buildFrequencyMap(items: string[]) {
   }, {});
 }
 
+const catalogSignalsCache = new WeakMap<Recipe[], CatalogSignals>();
+const searchIndexCache = new WeakMap<Recipe[], SearchIndex>();
+const recipeAnalysisCache = new WeakMap<Recipe, RecipeAnalysis>();
+
 function getCatalogSignals(recipes: Recipe[]): CatalogSignals {
-  return {
+  const cached = catalogSignalsCache.get(recipes);
+
+  if (cached) {
+    return cached;
+  }
+
+  const signals = {
     totalRecipes: Math.max(recipes.length, 1),
     cuisineFrequency: buildFrequencyMap(recipes.map((recipe) => recipe.cuisine)),
     categoryFrequency: buildFrequencyMap(recipes.flatMap((recipe) => recipe.categories)),
     tagFrequency: buildFrequencyMap(recipes.flatMap((recipe) => recipe.tags)),
   };
+
+  catalogSignalsCache.set(recipes, signals);
+  return signals;
 }
 
 function getSpecificityBoost(frequencyMap: Record<string, number>, key: string, totalRecipes: number) {
@@ -313,45 +343,23 @@ function getSpecificityBoost(frequencyMap: Record<string, number>, key: string, 
 }
 
 function getRecipeTokens(recipe: Recipe) {
-  return unique([
-    ...tokenize(recipe.title),
-    ...tokenize(recipe.cuisine),
-    ...recipe.categories.flatMap((category) => tokenize(category)),
-    ...tokenize(recipe.description),
-    ...recipe.tags.flatMap((tag) => tokenize(tag)),
-    ...recipe.ingredients.flatMap((ingredient) => tokenize(ingredient)),
-  ]);
+  return getRecipeAnalysis(recipe).tokens;
 }
 
 function getDocumentLength(recipe: Recipe) {
-  return getRecipeTokens(recipe).length;
+  return getRecipeAnalysis(recipe).documentLength;
 }
 
 function getTokenFrequency(recipe: Recipe, token: string) {
-  const fields = [
-    recipe.title,
-    recipe.cuisine,
-    recipe.categories.join(' '),
-    recipe.description,
-    recipe.tags.join(' '),
-    recipe.ingredients.join(' '),
-  ]
-    .join(' ')
-    .toLowerCase();
-
-  return fields.split(token).length - 1;
+  return getRecipeAnalysis(recipe).searchableText.split(token).length - 1;
 }
 
 function getDocumentFrequency(recipes: Recipe[], token: string) {
-  return recipes.reduce((count, recipe) => {
-    const hasToken = getRecipeTokens(recipe).includes(token);
-    return hasToken ? count + 1 : count;
-  }, 0);
+  return getSearchIndex(recipes).documentFrequencyByToken.get(token) ?? 0;
 }
 
 function getBm25Score(recipe: Recipe, recipes: Recipe[], queryTokens: string[]) {
-  const avgDocLength =
-    recipes.reduce((total, current) => total + getDocumentLength(current), 0) / Math.max(recipes.length, 1);
+  const searchIndex = getSearchIndex(recipes);
   const docLength = getDocumentLength(recipe);
 
   return queryTokens.reduce((score, token) => {
@@ -364,10 +372,82 @@ function getBm25Score(recipe: Recipe, recipes: Recipe[], queryTokens: string[]) 
     const df = getDocumentFrequency(recipes, token);
     const idf = Math.log(1 + (recipes.length - df + 0.5) / (df + 0.5));
     const numerator = tf * (K1 + 1);
-    const denominator = tf + K1 * (1 - B + B * (docLength / Math.max(avgDocLength, 1)));
+    const denominator = tf + K1 * (1 - B + B * (docLength / Math.max(searchIndex.averageDocumentLength, 1)));
 
     return score + idf * (numerator / denominator);
   }, 0);
+}
+
+function getRecipeAnalysis(recipe: Recipe): RecipeAnalysis {
+  const cached = recipeAnalysisCache.get(recipe);
+
+  if (cached) {
+    return cached;
+  }
+
+  const tokens = unique([
+    ...tokenize(recipe.title),
+    ...tokenize(recipe.cuisine),
+    ...recipe.categories.flatMap((category) => tokenize(category)),
+    ...tokenize(recipe.description),
+    ...recipe.tags.flatMap((tag) => tokenize(tag)),
+    ...recipe.ingredients.flatMap((ingredient) => tokenize(ingredient)),
+  ]);
+  const analysis = {
+    tokens,
+    tokenSet: new Set(tokens),
+    documentLength: tokens.length,
+    searchableText: [
+      recipe.title,
+      recipe.cuisine,
+      recipe.categories.join(' '),
+      recipe.description,
+      recipe.tags.join(' '),
+      recipe.ingredients.join(' '),
+    ]
+      .join(' ')
+      .toLowerCase(),
+    normalizedIngredients: recipe.ingredients.map((ingredient) => ingredient.toLowerCase()),
+    categorySet: new Set(recipe.categories),
+    tagSet: new Set(recipe.tags),
+  };
+
+  recipeAnalysisCache.set(recipe, analysis);
+  return analysis;
+}
+
+function getSearchIndex(recipes: Recipe[]): SearchIndex {
+  const cached = searchIndexCache.get(recipes);
+
+  if (cached) {
+    return cached;
+  }
+
+  const analyses = new Map<string, RecipeAnalysis>();
+  const documentFrequencyByToken = new Map<string, number>();
+  const recipeById = new Map<string, Recipe>();
+  let totalDocumentLength = 0;
+
+  recipes.forEach((recipe) => {
+    const analysis = getRecipeAnalysis(recipe);
+    analyses.set(recipe.id, analysis);
+    recipeById.set(recipe.id, recipe);
+    totalDocumentLength += analysis.documentLength;
+
+    analysis.tokenSet.forEach((token) => {
+      documentFrequencyByToken.set(token, (documentFrequencyByToken.get(token) ?? 0) + 1);
+    });
+  });
+
+  const index = {
+    analyses,
+    averageDocumentLength: totalDocumentLength / Math.max(recipes.length, 1),
+    documentFrequencyByToken,
+    recipeById,
+  };
+
+  searchIndexCache.set(recipes, index);
+  return index;
 }
 
 export function buildTasteProfile(recipes: Recipe[], savedIds: Set<string>, interactions: UserInteractions): TasteProfile {
@@ -646,12 +726,13 @@ export function rankRecipes(recipes: Recipe[], query: string, tasteProfile: Tast
   return diversifyRankedResults(
     recipes
     .map<SearchResult | null>((recipe) => {
+      const analysis = getRecipeAnalysis(recipe);
       const bm25 = getBm25Score(recipe, recipes, queryTokens);
       const tasteBoost = getTasteBoost(recipe, tasteProfile, catalogSignals);
       const explorationBoost = getExplorationBoost(recipe, tasteProfile, catalogSignals) * 0.35;
       const titleMatch = queryTokens.some((token) => recipe.title.toLowerCase().includes(token));
       const ingredientMatch = queryTokens.some((token) =>
-        recipe.ingredients.some((ingredient) => ingredient.toLowerCase().includes(token))
+        analysis.normalizedIngredients.some((ingredient) => ingredient.includes(token))
       );
       const score = bm25 * 10 + tasteBoost + explorationBoost + (titleMatch ? 3 : 0) + (ingredientMatch ? 2 : 0);
 
@@ -715,35 +796,38 @@ export function buildKitchenPulse(
   now = new Date()
 ): KitchenPulse {
   const scores: Record<string, number> = {};
+  const searchIndex = getSearchIndex(recipes);
+  const catalogSignals = getCatalogSignals(recipes);
   const savedRecipes = recipes.filter((recipe) => recipe.saved);
   const savedRecipeScores: Record<string, number> = {};
   const recentFavoriteScores: Record<string, number> = {};
   const recentFavoriteIds = interactions.recentlySavedRecipeIds.slice(-5);
   const recentFavoriteRecipes = recentFavoriteIds
-    .map((recipeId) => recipes.find((recipe) => recipe.id === recipeId))
+    .map((recipeId) => searchIndex.recipeById.get(recipeId))
     .filter((recipe): recipe is Recipe => Boolean(recipe?.saved));
-  const categoryFrequency = recipes.reduce<Record<string, number>>((map, recipe) => {
-    recipe.categories.forEach((category) => {
-      map[category] = (map[category] ?? 0) + 1;
-    });
-
-    return map;
-  }, {});
-  const totalRecipes = Math.max(recipes.length, 1);
   const applyCategoryWeight = (category: string, amount: number) => {
-    const frequency = categoryFrequency[category] ?? 1;
-    const specificityBoost = Math.log(1 + totalRecipes / frequency);
+    const specificityBoost = getSpecificityBoost(
+      catalogSignals.categoryFrequency,
+      category,
+      catalogSignals.totalRecipes
+    );
     incrementWeight(scores, category, amount * specificityBoost);
   };
   const applyRecentFavoriteWeight = (category: string, amount: number) => {
-    const frequency = categoryFrequency[category] ?? 1;
-    const specificityBoost = Math.log(1 + totalRecipes / frequency);
+    const specificityBoost = getSpecificityBoost(
+      catalogSignals.categoryFrequency,
+      category,
+      catalogSignals.totalRecipes
+    );
     incrementWeight(recentFavoriteScores, category, amount * specificityBoost);
     incrementWeight(scores, category, amount * specificityBoost);
   };
   const applySavedRecipeWeight = (category: string, amount: number) => {
-    const frequency = categoryFrequency[category] ?? 1;
-    const specificityBoost = Math.log(1 + totalRecipes / frequency);
+    const specificityBoost = getSpecificityBoost(
+      catalogSignals.categoryFrequency,
+      category,
+      catalogSignals.totalRecipes
+    );
     incrementWeight(savedRecipeScores, category, amount * specificityBoost);
     incrementWeight(scores, category, amount * specificityBoost);
   };
@@ -762,7 +846,7 @@ export function buildKitchenPulse(
   });
 
   Object.entries(interactions.viewsByRecipeId).forEach(([recipeId, viewCount]) => {
-    const recipe = recipes.find((item) => item.id === recipeId);
+    const recipe = searchIndex.recipeById.get(recipeId);
 
     if (!recipe || viewCount <= 0) {
       return;
@@ -776,8 +860,8 @@ export function buildKitchenPulse(
     const tokens = tokenize(search);
 
     recipes.forEach((recipe) => {
-      const recipeTokens = getRecipeTokens(recipe);
-      const hasMatch = tokens.some((token) => recipeTokens.includes(token));
+      const recipeTokens = getRecipeAnalysis(recipe).tokenSet;
+      const hasMatch = tokens.some((token) => recipeTokens.has(token));
 
       if (!hasMatch) {
         return;
@@ -791,20 +875,20 @@ export function buildKitchenPulse(
   const tomorrowKey = getDateKey(addDays(now, 1));
   const currentSlot = getCurrentMealSlot(now);
   const currentPlannedRecipeId = mealPlans[todayKey]?.[currentSlot];
-  const currentPlannedRecipe = recipes.find((recipe) => recipe.id === currentPlannedRecipeId);
+  const currentPlannedRecipe = currentPlannedRecipeId ? searchIndex.recipeById.get(currentPlannedRecipeId) : undefined;
 
   if (currentPlannedRecipe) {
     currentPlannedRecipe.categories.forEach((category) => applyCategoryWeight(category, 12));
   }
 
   Object.values(mealPlans[todayKey] ?? {}).forEach((recipeId) => {
-    const recipe = recipes.find((item) => item.id === recipeId);
+    const recipe = searchIndex.recipeById.get(recipeId);
     if (!recipe) return;
     recipe.categories.forEach((category) => applyCategoryWeight(category, 5));
   });
 
   Object.values(mealPlans[tomorrowKey] ?? {}).forEach((recipeId) => {
-    const recipe = recipes.find((item) => item.id === recipeId);
+    const recipe = searchIndex.recipeById.get(recipeId);
     if (!recipe) return;
     recipe.categories.forEach((category) => applyCategoryWeight(category, 2));
   });
@@ -833,7 +917,7 @@ export function buildKitchenPulse(
     reason = `Leaning into ${winner.toLowerCase()} from the recipes you keep saving lately.`;
   } else if (
     Object.entries(interactions.viewsByRecipeId).some(([recipeId, viewCount]) => {
-      const recipe = recipes.find((item) => item.id === recipeId);
+      const recipe = searchIndex.recipeById.get(recipeId);
       return Boolean(recipe && viewCount > 0 && recipe.categories.includes(winner));
     })
   ) {
@@ -868,8 +952,7 @@ export function recommendMealRecipes(
       const tasteBoost = getTasteBoost(recipe, tasteProfile, catalogSignals);
       const explorationBoost = getExplorationBoost(recipe, tasteProfile, catalogSignals) * (filter === 'smart' ? 0.45 : 0.15);
       const bm25 = queryTokens.length > 0 ? getBm25Score(recipe, recipes, queryTokens) * 8 : 0;
-      const categories = new Set(recipe.categories);
-      const tags = new Set(recipe.tags);
+      const { categorySet: categories, tagSet: tags } = getRecipeAnalysis(recipe);
 
       let slotBoost = 0;
       let slotReason = '';

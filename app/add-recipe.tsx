@@ -776,7 +776,7 @@ export default function AddRecipeScreen() {
 
       <View style={[styles.sectionCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
         <View style={styles.sectionHeaderRow}>
-          <View>
+          <View style={styles.sectionHeaderCopy}>
             <Text style={styles.sectionEyebrow}>Ingredients</Text>
             <Text style={styles.sectionTitle}>List each ingredient on its own line.</Text>
           </View>
@@ -799,7 +799,7 @@ export default function AddRecipeScreen() {
 
       <View style={[styles.sectionCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
         <View style={styles.sectionHeaderRow}>
-          <View>
+          <View style={styles.sectionHeaderCopy}>
             <Text style={styles.sectionEyebrow}>Method</Text>
             <Text style={styles.sectionTitle}>Write steps a real cook can follow.</Text>
           </View>
@@ -1019,7 +1019,12 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 12,
   },
+  sectionHeaderCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
   sectionCountPill: {
+    flexShrink: 0,
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 8,

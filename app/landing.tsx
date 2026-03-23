@@ -75,14 +75,26 @@ export default function LandingScreen() {
   const cardWidth = (contentWidth - 12) / 2;
   const featuredRecipe = featuredPick?.recipe ?? recipes[0];
   const featuredReason = featuredPick?.reason ?? 'Daily rotation from the recipe board.';
-  const previewRecipes = recipes.filter((recipe) => recipe.id !== featuredRecipe?.id).slice(0, 4);
-  const fastestCookTime = recipes.reduce((fastest, recipe) => Math.min(fastest, recipe.cookTime), Number.POSITIVE_INFINITY);
+  const previewRecipes = useMemo(
+    () => recipes.filter((recipe) => recipe.id !== featuredRecipe?.id).slice(0, 4),
+    [featuredRecipe?.id, recipes]
+  );
+  const fastestCookTime = useMemo(
+    () => recipes.reduce((fastest, recipe) => Math.min(fastest, recipe.cookTime), Number.POSITIVE_INFINITY),
+    [recipes]
+  );
   const quickStartFilters = ['Easy recipes', 'Everyday food', 'Budget', 'Dessert'];
   const today = useMemo(() => new Date(), []);
   const todayKey = useMemo(() => getDateKey(today), [today]);
   const tomorrowKey = useMemo(() => getDateKey(addDays(today, 1)), [today]);
-  const todayMealCount = MEAL_SLOTS.filter((slot) => Boolean(mealPlans[todayKey]?.[slot])).length;
-  const tomorrowMealCount = MEAL_SLOTS.filter((slot) => Boolean(mealPlans[tomorrowKey]?.[slot])).length;
+  const todayMealCount = useMemo(
+    () => MEAL_SLOTS.filter((slot) => Boolean(mealPlans[todayKey]?.[slot])).length,
+    [mealPlans, todayKey]
+  );
+  const tomorrowMealCount = useMemo(
+    () => MEAL_SLOTS.filter((slot) => Boolean(mealPlans[tomorrowKey]?.[slot])).length,
+    [mealPlans, tomorrowKey]
+  );
   const plannerStatusCopy =
     todayMealCount > 0
       ? `${todayMealCount} of 3 meals planned for today`

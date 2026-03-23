@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
 import { useAuth } from '@/components/auth-provider';
@@ -254,9 +254,11 @@ export default function SearchScreen() {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [pantryInput, setPantryInput] = useState('');
   const [activeMode, setActiveMode] = useState<ExploreMode>('all');
+  const deferredQuery = useDeferredValue(query);
+  const deferredPantryInput = useDeferredValue(pantryInput);
   const normalizedQuery = query.trim().toLowerCase();
-  const rankedResults = searchRecipes(query);
-  const pantryMatches = matchRecipesByPantry(recipes, pantryInput).slice(0, 8);
+  const rankedResults = useMemo(() => searchRecipes(deferredQuery), [deferredQuery, searchRecipes]);
+  const pantryMatches = useMemo(() => matchRecipesByPantry(recipes, deferredPantryInput).slice(0, 8), [deferredPantryInput, recipes]);
   const incomingQuery =
     typeof params.q === 'string' ? params.q : Array.isArray(params.q) ? params.q[0] ?? '' : '';
 

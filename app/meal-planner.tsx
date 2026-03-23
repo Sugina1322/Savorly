@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { Animated, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { useAuth } from '@/components/auth-provider';
@@ -115,14 +115,20 @@ export default function MealPlannerScreen() {
   const plannedMealCount = MEAL_SLOTS.filter((slot) => Boolean(mealPlans[selectedDayKey]?.[slot.key])).length;
   const pickerSlotConfig = MEAL_SLOTS.find((slot) => slot.key === pickerSlot) ?? null;
   const assignedRecipeId = pickerSlot ? mealPlans[selectedDayKey]?.[pickerSlot] : undefined;
-  const assignedRecipe = recipes.find((recipe) => recipe.id === assignedRecipeId);
+  const recipeById = useMemo(() => new Map(recipes.map((recipe) => [recipe.id, recipe])), [recipes]);
+  const assignedRecipe = assignedRecipeId ? recipeById.get(assignedRecipeId) : undefined;
   const effectiveQuery =
     pickerSlot === null
       ? ''
       : query.trim() || [DEFAULT_SLOT_QUERIES[pickerSlot], getFilterQuery(activeFilter)].filter(Boolean).join(' ');
-  const recommendedRecipes = pickerSlot
-    ? recommendMealRecipes(recipes, tasteProfile, pickerSlot, activeFilter, effectiveQuery).slice(0, 8)
-    : [];
+  const deferredEffectiveQuery = useDeferredValue(effectiveQuery);
+  const recommendedRecipes = useMemo(
+    () =>
+      pickerSlot
+        ? recommendMealRecipes(recipes, tasteProfile, pickerSlot, activeFilter, deferredEffectiveQuery).slice(0, 8)
+        : [],
+    [activeFilter, deferredEffectiveQuery, pickerSlot, recipes, tasteProfile]
+  );
 
   useEffect(() => {
     if (!feedbackVisible) {
@@ -274,7 +280,7 @@ export default function MealPlannerScreen() {
         <View style={styles.slotStack}>
           {MEAL_SLOTS.map((slot) => {
             const recipeId = mealPlans[selectedDayKey]?.[slot.key];
-            const recipe = recipes.find((item) => item.id === recipeId);
+            const recipe = recipeId ? recipeById.get(recipeId) : undefined;
 
             return (
               <View

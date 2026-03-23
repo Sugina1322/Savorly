@@ -79,6 +79,7 @@ const DEFAULT_INTERACTIONS: UserInteractions = {
 };
 const SEED_RECIPE_IDS = new Set(recipeSeed.map((recipe) => recipe.id));
 const DEFAULT_RECIPES = recipeSeed;
+const STORAGE_WRITE_DEBOUNCE_MS = 250;
 
 function buildStorageKey(baseKey: string, scope: string) {
   return `${baseKey}.${scope}`;
@@ -96,6 +97,22 @@ function getDefaultRecipeState() {
     mealPlans: {},
     cookingProgress: {},
   };
+}
+
+function useDebouncedStorageWrite(key: string, value: string, isEnabled: boolean, errorLabel: string) {
+  useEffect(() => {
+    if (!isEnabled) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      AsyncStorage.setItem(key, value).catch((error) => {
+        console.warn(errorLabel, error);
+      });
+    }, STORAGE_WRITE_DEBOUNCE_MS);
+
+    return () => clearTimeout(timeout);
+  }, [errorLabel, isEnabled, key, value]);
 }
 
 function removeRecipeFromMealPlans(
@@ -160,6 +177,15 @@ export function RecipesProvider({ children }: PropsWithChildren) {
   const [mealPlans, setMealPlans] = useState<Record<string, Partial<Record<MealSlot, string>>>>({});
   const [cookingProgress, setCookingProgressState] = useState<Record<string, number>>({});
   const [isHydrated, setIsHydrated] = useState(false);
+  const mappedRecipes = useMemo(
+    () =>
+      recipes.map((recipe) => ({
+        ...recipe,
+        saved: savedIds.has(recipe.id),
+      })),
+    [recipes, savedIds]
+  );
+  const recommendationsEnabled = settings.smartSuggestions;
 
   useEffect(() => {
     const defaults = getDefaultRecipeState();
@@ -237,50 +263,30 @@ export function RecipesProvider({ children }: PropsWithChildren) {
     };
   }, [storageScope]);
 
-  useEffect(() => {
-    if (!isHydrated) {
-      return;
-    }
-
-    const mappedRecipes = recipes.map((recipe) => ({
-      ...recipe,
-      saved: savedIds.has(recipe.id),
-    }));
-
-    AsyncStorage.setItem(buildStorageKey(RECIPES_STORAGE_KEY, storageScope), JSON.stringify(mappedRecipes)).catch((error) => {
-      console.warn('Failed to save recipes', error);
-    });
-  }, [isHydrated, recipes, savedIds, storageScope]);
-
-  useEffect(() => {
-    if (!isHydrated) {
-      return;
-    }
-
-    AsyncStorage.setItem(buildStorageKey(RECIPE_SIGNALS_STORAGE_KEY, storageScope), JSON.stringify(interactions)).catch((error) => {
-      console.warn('Failed to save recipe signals', error);
-    });
-  }, [interactions, isHydrated, storageScope]);
-
-  useEffect(() => {
-    if (!isHydrated) {
-      return;
-    }
-
-    AsyncStorage.setItem(buildStorageKey(MEAL_PLAN_STORAGE_KEY, storageScope), JSON.stringify(mealPlans)).catch((error) => {
-      console.warn('Failed to save meal plans', error);
-    });
-  }, [isHydrated, mealPlans, storageScope]);
-
-  useEffect(() => {
-    if (!isHydrated) {
-      return;
-    }
-
-    AsyncStorage.setItem(buildStorageKey(COOKING_PROGRESS_STORAGE_KEY, storageScope), JSON.stringify(cookingProgress)).catch((error) => {
-      console.warn('Failed to save cooking progress', error);
-    });
-  }, [cookingProgress, isHydrated, storageScope]);
+  useDebouncedStorageWrite(
+    buildStorageKey(RECIPES_STORAGE_KEY, storageScope),
+    JSON.stringify(mappedRecipes),
+    isHydrated,
+    'Failed to save recipes'
+  );
+  useDebouncedStorageWrite(
+    buildStorageKey(RECIPE_SIGNALS_STORAGE_KEY, storageScope),
+    JSON.stringify(interactions),
+    isHydrated,
+    'Failed to save recipe signals'
+  );
+  useDebouncedStorageWrite(
+    buildStorageKey(MEAL_PLAN_STORAGE_KEY, storageScope),
+    JSON.stringify(mealPlans),
+    isHydrated,
+    'Failed to save meal plans'
+  );
+  useDebouncedStorageWrite(
+    buildStorageKey(COOKING_PROGRESS_STORAGE_KEY, storageScope),
+    JSON.stringify(cookingProgress),
+    isHydrated,
+    'Failed to save cooking progress'
+  );
 
   const toggleFavorite = useCallback((id: string) => {
     const isSaved = savedIds.has(id);
@@ -444,14 +450,8 @@ export function RecipesProvider({ children }: PropsWithChildren) {
     }));
   }, []);
 
-  const value = useMemo(() => {
-    const mappedRecipes = recipes.map((recipe) => ({
-      ...recipe,
-      saved: savedIds.has(recipe.id),
-    }));
+  const enhancedTasteProfile = useMemo(() => {
     const tasteProfile = buildTasteProfile(mappedRecipes, savedIds, interactions);
-    const recommendationsEnabled = settings.smartSuggestions;
-
     settings.preferredCuisines.forEach((cuisine) => {
       tasteProfile.cuisines[cuisine] = (tasteProfile.cuisines[cuisine] ?? 0) + 8;
     });
@@ -474,17 +474,42 @@ export function RecipesProvider({ children }: PropsWithChildren) {
       tasteProfile.tags.Spicy = (tasteProfile.tags.Spicy ?? 0) + 8;
     }
 
+    return tasteProfile;
+  }, [interactions, mappedRecipes, savedIds, settings.dietaryFocus, settings.preferredCuisines, settings.smartSuggestions, settings.spiceLevel]);
+  const featuredPick = useMemo(
+    () => pickFeaturedRecipe(mappedRecipes, savedIds, enhancedTasteProfile),
+    [enhancedTasteProfile, mappedRecipes, savedIds]
+  );
+  const kitchenPulse = useMemo(
+    () => (recommendationsEnabled ? buildKitchenPulse(mappedRecipes, enhancedTasteProfile, interactions, mealPlans) : null),
+    [enhancedTasteProfile, interactions, mappedRecipes, mealPlans, recommendationsEnabled]
+  );
+  const smartSuggestions = useMemo(
+    () => (recommendationsEnabled ? buildSmartSuggestions(mappedRecipes, savedIds, enhancedTasteProfile) : []),
+    [enhancedTasteProfile, mappedRecipes, recommendationsEnabled, savedIds]
+  );
+  const smartCollections = useMemo(
+    () => (recommendationsEnabled ? buildSmartCollections(mappedRecipes, savedIds, enhancedTasteProfile) : []),
+    [enhancedTasteProfile, mappedRecipes, recommendationsEnabled, savedIds]
+  );
+  const savedCount = savedIds.size;
+  const searchRecipes = useCallback(
+    (query: string) => rankRecipes(mappedRecipes, query, enhancedTasteProfile),
+    [enhancedTasteProfile, mappedRecipes]
+  );
+
+  const value = useMemo(() => {
     return {
       recipes: mappedRecipes,
-      featuredPick: pickFeaturedRecipe(mappedRecipes, savedIds, tasteProfile),
-      kitchenPulse: recommendationsEnabled ? buildKitchenPulse(mappedRecipes, tasteProfile, interactions, mealPlans) : null,
+      featuredPick,
+      kitchenPulse,
       mealPlans,
       cookingProgress,
-      savedCount: mappedRecipes.filter((recipe) => recipe.saved).length,
-      searchRecipes: (query: string) => rankRecipes(mappedRecipes, query, tasteProfile),
-      smartSuggestions: recommendationsEnabled ? buildSmartSuggestions(mappedRecipes, savedIds, tasteProfile) : [],
-      smartCollections: recommendationsEnabled ? buildSmartCollections(mappedRecipes, savedIds, tasteProfile) : [],
-      tasteProfile,
+      savedCount,
+      searchRecipes,
+      smartSuggestions,
+      smartCollections,
+      tasteProfile: enhancedTasteProfile,
       toggleFavorite,
       clearSavedRecipes,
       addRecipeFromIdea,
@@ -496,7 +521,7 @@ export function RecipesProvider({ children }: PropsWithChildren) {
       recordSearchQuery,
       trackRecipeView,
     };
-  }, [addRecipeFromIdea, clearMealPlanSlot, clearSavedRecipes, cookingProgress, deleteRecipe, interactions, mealPlans, recordSearchQuery, recipes, savedIds, setCookingProgress, setMealPlanSlot, settings, toggleFavorite, trackRecipeView, updateRecipeFromIdea]);
+  }, [addRecipeFromIdea, clearMealPlanSlot, clearSavedRecipes, cookingProgress, deleteRecipe, enhancedTasteProfile, featuredPick, kitchenPulse, mappedRecipes, mealPlans, recordSearchQuery, savedCount, searchRecipes, setCookingProgress, setMealPlanSlot, smartCollections, smartSuggestions, toggleFavorite, trackRecipeView, updateRecipeFromIdea]);
 
   return <RecipesContext.Provider value={value}>{children}</RecipesContext.Provider>;
 }

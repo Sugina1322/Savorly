@@ -138,11 +138,40 @@ export default function DiscoverScreen() {
   const contentWidth = Math.min(width - 36, 460);
   const railCardWidth = Math.min(Math.max(contentWidth * 0.72, 240), 300);
   const gridCardWidth = (contentWidth - 12) / 2;
-  const dessertCount = recipes.filter((recipe) => recipe.categories.includes('Dessert')).length;
-  const drinksCount = recipes.filter((recipe) => recipe.categories.includes('Drinks')).length;
-  const topCuisine = Object.entries(tasteProfile.cuisines).sort((left, right) => right[1] - left[1])[0]?.[0];
-  const topTag = Object.entries(tasteProfile.tags).sort((left, right) => right[1] - left[1])[0]?.[0];
-  const topCategory = Object.entries(tasteProfile.categories).sort((left, right) => right[1] - left[1])[0]?.[0];
+  const recipesByCategory = useMemo(() => {
+    const next = new Map<string, typeof recipes>();
+
+    recipes.forEach((recipe) => {
+      recipe.categories.forEach((category) => {
+        const current = next.get(category);
+
+        if (current) {
+          current.push(recipe);
+          return;
+        }
+
+        next.set(category, [recipe]);
+      });
+    });
+
+    return next;
+  }, [recipes]);
+  const discoverStats = useMemo(() => {
+    const dessertCount = recipesByCategory.get('Dessert')?.length ?? 0;
+    const drinksCount = recipesByCategory.get('Drinks')?.length ?? 0;
+    const topCuisine = Object.entries(tasteProfile.cuisines).sort((left, right) => right[1] - left[1])[0]?.[0];
+    const topTag = Object.entries(tasteProfile.tags).sort((left, right) => right[1] - left[1])[0]?.[0];
+    const topCategory = Object.entries(tasteProfile.categories).sort((left, right) => right[1] - left[1])[0]?.[0];
+
+    return {
+      dessertCount,
+      drinksCount,
+      topCuisine,
+      topTag,
+      topCategory,
+    };
+  }, [recipesByCategory, tasteProfile.categories, tasteProfile.cuisines, tasteProfile.tags]);
+  const { dessertCount, drinksCount, topCategory, topCuisine, topTag } = discoverStats;
 
   const filteredRecipes = useMemo(
     () => recipes.filter((recipe) => matchesCategory(activeFilter, recipe.categories)),
@@ -152,7 +181,15 @@ export default function DiscoverScreen() {
   const forYouRecipes = useMemo(() => {
     const suggestionRecipes = smartSuggestions.map((item) => item.recipe);
     const pool = [featuredRecipe, ...suggestionRecipes, ...filteredRecipes];
-    const uniqueRecipes = pool.filter((recipe, index, array) => array.findIndex((item) => item.id === recipe.id) === index);
+    const seen = new Set<string>();
+    const uniqueRecipes = pool.filter((recipe) => {
+      if (seen.has(recipe.id)) {
+        return false;
+      }
+
+      seen.add(recipe.id);
+      return true;
+    });
 
     return uniqueRecipes
       .filter((recipe) => matchesCategory(activeFilter, recipe.categories))
@@ -191,9 +228,7 @@ export default function DiscoverScreen() {
       key: 'breakfast',
       label: 'Breakfast',
       copy: 'Easy starts and quick plates',
-      recipe:
-        forYouRecipes.find((recipe) => recipe.categories.includes('Breakfast')) ??
-        recipes.find((recipe) => recipe.categories.includes('Breakfast')),
+      recipe: forYouRecipes.find((recipe) => recipe.categories.includes('Breakfast')) ?? recipesByCategory.get('Breakfast')?.[0],
     },
     {
       key: 'lunch',
@@ -201,7 +236,7 @@ export default function DiscoverScreen() {
       copy: 'Faster mains for the middle of the day',
       recipe:
         forYouRecipes.find((recipe) => recipe.categories.includes('Everyday food') || recipe.categories.includes('Pantry-friendly')) ??
-        recipes.find((recipe) => recipe.categories.includes('Everyday food')),
+        recipesByCategory.get('Everyday food')?.[0],
     },
     {
       key: 'dinner',
@@ -212,10 +247,14 @@ export default function DiscoverScreen() {
         recipes.find((recipe) => recipe.tags.includes('Comfort')),
     },
   ].filter((item) => Boolean(item.recipe));
-  const shelves = DISCOVER_SHELVES.map((shelf) => ({
-    ...shelf,
-    recipes: recipes.filter((recipe) => recipe.categories.includes(shelf.key)).slice(0, 6),
-  })).filter((shelf) => shelf.recipes.length > 0);
+  const shelves = useMemo(
+    () =>
+      DISCOVER_SHELVES.map((shelf) => ({
+        ...shelf,
+        recipes: (recipesByCategory.get(shelf.key) ?? []).slice(0, 6),
+      })).filter((shelf) => shelf.recipes.length > 0),
+    [recipesByCategory]
+  );
 
   function openRecipe(id: string) {
     router.push({
