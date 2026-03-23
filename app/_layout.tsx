@@ -2,7 +2,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import * as SplashScreen from 'expo-splash-screen';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback } from 'react';
+import { useEffect } from 'react';
 import { View } from 'react-native';
 import 'react-native-reanimated';
 import '@/utils/webcrypto';
@@ -17,6 +17,12 @@ void SplashScreen.preventAutoHideAsync();
 
 function AppNavigator() {
   const { isLoading } = useAuth();
+
+  useEffect(() => {
+    if (!isLoading) {
+      void SplashScreen.hideAsync();
+    }
+  }, [isLoading]);
 
   if (isLoading) {
     return <LoadingScreen />;
@@ -81,16 +87,13 @@ function AppNavigator() {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const handleRootLayout = useCallback(() => {
-    void SplashScreen.hideAsync();
-  }, []);
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <SettingsProvider>
         <AuthProvider>
           <RecipesProvider>
-            <View style={{ flex: 1 }} onLayout={handleRootLayout}>
+            <View style={{ flex: 1 }}>
               <AppNavigator />
             </View>
           </RecipesProvider>
