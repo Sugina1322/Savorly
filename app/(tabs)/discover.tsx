@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Animated, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { useAuth } from '@/components/auth-provider';
 import { FavoriteButton } from '@/components/favorite-button';
@@ -135,6 +135,9 @@ export default function DiscoverScreen() {
   const featuredRecipe = featuredPick?.recipe ?? recipes[0];
   const featuredReason = featuredPick?.reason ?? 'Picked from today\'s recipe rotation.';
   const [activeFilter, setActiveFilter] = useState<DiscoverFilterKey>('all');
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastVisible, setToastVisible] = useState(false);
+  const toastAnimation = useMemo(() => new Animated.Value(0), []);
   const contentWidth = Math.min(width - 36, 460);
   const railCardWidth = Math.min(Math.max(contentWidth * 0.72, 240), 300);
   const gridCardWidth = (contentWidth - 12) / 2;
@@ -256,6 +259,29 @@ export default function DiscoverScreen() {
     [recipesByCategory]
   );
 
+  useEffect(() => {
+    if (!toastVisible) {
+      Animated.timing(toastAnimation, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true,
+      }).start();
+      return;
+    }
+
+    Animated.timing(toastAnimation, {
+      toValue: 1,
+      duration: 220,
+      useNativeDriver: true,
+    }).start();
+
+    const timeout = setTimeout(() => {
+      setToastVisible(false);
+    }, 1500);
+
+    return () => clearTimeout(timeout);
+  }, [toastAnimation, toastVisible]);
+
   function openRecipe(id: string) {
     router.push({
       pathname: '/recipe/[id]',
@@ -276,8 +302,33 @@ export default function DiscoverScreen() {
     });
   }
 
+  function handleFavoriteToggle(recipe: (typeof recipes)[number]) {
+    toggleFavorite(recipe.id);
+    setToastMessage(recipe.saved ? 'Removed from your saved recipes.' : 'Added to your saved recipes.');
+    setToastVisible(true);
+  }
+
   return (
     <ResponsiveScrollScreen backgroundColor={theme.tabBarBackground} bottomInsetBehavior="tab-bar">
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.toastBanner,
+          {
+            backgroundColor: theme.heroBackground,
+            opacity: toastAnimation,
+            transform: [
+              {
+                translateY: toastAnimation.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [-12, 0],
+                }),
+              },
+            ],
+          },
+        ]}>
+        <Text style={styles.toastText}>{toastMessage}</Text>
+      </Animated.View>
       <View style={styles.header}>
         <Text style={[styles.eyebrow, { color: theme.accent }]}>{copy.appName}</Text>
         <Text style={styles.title}>{screenCopy.title}</Text>
@@ -304,7 +355,7 @@ export default function DiscoverScreen() {
       <Pressable style={styles.featuredCard} onPress={() => openRecipe(featuredRecipe.id)}>
         <Image source={featuredRecipe.image} style={styles.featuredImage} contentFit="cover" />
         <View style={styles.favoriteWrap}>
-          <FavoriteButton active={featuredRecipe.saved} onPress={() => toggleFavorite(featuredRecipe.id)} />
+          <FavoriteButton active={featuredRecipe.saved} onPress={() => handleFavoriteToggle(featuredRecipe)} />
         </View>
         <View style={styles.featuredOverlay}>
           <Text style={[styles.featuredLabel, { color: theme.heroAccent }]}>{copy.featuredPick}</Text>
@@ -424,7 +475,7 @@ export default function DiscoverScreen() {
               onPress={() => openRecipe(recipe.id)}>
               <Image source={recipe.image} style={styles.railImage} contentFit="cover" />
               <View style={styles.railFavorite}>
-                <FavoriteButton active={recipe.saved} onPress={() => toggleFavorite(recipe.id)} />
+                <FavoriteButton active={recipe.saved} onPress={() => handleFavoriteToggle(recipe)} />
               </View>
               <View style={styles.railBody}>
                 <Text style={styles.railTitle}>{recipe.title}</Text>
@@ -501,7 +552,7 @@ export default function DiscoverScreen() {
                 onPress={() => openRecipe(recipe.id)}>
                 <Image source={recipe.image} style={styles.shelfImage} contentFit="cover" />
                 <View style={styles.shelfFavorite}>
-                  <FavoriteButton active={recipe.saved} onPress={() => toggleFavorite(recipe.id)} />
+                  <FavoriteButton active={recipe.saved} onPress={() => handleFavoriteToggle(recipe)} />
                 </View>
                 <View style={styles.shelfBody}>
                   <Text style={styles.shelfCardTitle}>{recipe.title}</Text>
@@ -530,7 +581,7 @@ export default function DiscoverScreen() {
               onPress={() => openRecipe(recipe.id)}>
               <Image source={recipe.image} style={styles.gridImage} contentFit="cover" />
               <View style={styles.gridFavorite}>
-                <FavoriteButton active={recipe.saved} onPress={() => toggleFavorite(recipe.id)} />
+                <FavoriteButton active={recipe.saved} onPress={() => handleFavoriteToggle(recipe)} />
               </View>
               <View style={styles.gridBody}>
                 <Text style={styles.gridTitle}>{recipe.title}</Text>
@@ -549,6 +600,18 @@ export default function DiscoverScreen() {
 const styles = StyleSheet.create({
   header: {
     paddingBottom: 18,
+  },
+  toastBanner: {
+    alignSelf: 'flex-start',
+    marginBottom: 14,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  toastText: {
+    color: '#FFF8F2',
+    fontSize: 12,
+    fontWeight: '800',
   },
   eyebrow: {
     fontSize: 13,

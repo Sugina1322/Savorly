@@ -27,6 +27,7 @@ export function ResponsiveScrollScreen({
       style={[styles.safeArea, { backgroundColor }]}>
       <ScrollView
         ref={scrollRef}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={[
           styles.content,
           {

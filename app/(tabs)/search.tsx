@@ -371,7 +371,11 @@ export default function SearchScreen() {
               </View>
 
               <View style={styles.suggestionWrap}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.suggestionRail}>
+                <ScrollView
+                  horizontal
+                  keyboardShouldPersistTaps="always"
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.suggestionRail}>
                   {searchSuggestions.map((suggestion) => (
                     <Pressable
                       key={suggestion}
